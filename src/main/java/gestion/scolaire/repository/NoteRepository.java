@@ -3,11 +3,14 @@ package gestion.scolaire.repository;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import gestion.scolaire.model.Affectation;
 import gestion.scolaire.model.Etudiant;
 import gestion.scolaire.model.Note;
+import gestion.scolaire.model.TypeNote;
 import gestion.scolaire.model.TypePeriode;
 
 @Repository
@@ -17,29 +20,63 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
 
         List<Note> findByAffectationId(Long affectationId);
 
-        List<Note> findByEtudiantIdAndAnneeScolaireId(
-                        Long etudiantId,
-                        Long anneeScolaireId);
+        boolean existsByEtudiantIdAndAffectationIdAndAnneeScolaireIdAndMatiereIdAndPeriodeAndTypeAndTypePeriode(
+            Long etudiantId,
+            Long affectationId,
+            Long anneeScolaireId,
+            Long matiereId,
+            Integer periode,
+            TypeNote type,
+            TypePeriode typePeriode
+    );
 
-        List<Note> findByEtudiantIdAndAnneeScolaireIdAndPeriodeAndTypePeriode(
-                        Long etudiantId,
-                        Long anneeScolaireId,
-                        Integer periode,
-                        TypePeriode typePeriode);
+    List<Note> findByEtudiantIdAndAnneeScolaireId(
+            Long etudiantId,
+            Long anneeScolaireId
+    );
 
-        List<Note> findByAffectationIdAndAnneeScolaireIdAndPeriodeAndTypePeriode(
-                        Long affectationId,
-                        Long anneeScolaireId,
-                        Integer periode,
-                        TypePeriode typePeriode);
+    List<Note> findByEtudiantIdAndAnneeScolaireIdAndPeriodeAndTypePeriode(
+            Long etudiantId,
+            Long anneeScolaireId,
+            Integer periode,
+            TypePeriode typePeriode
+    );
 
-        List<Note> findByAffectationIdAndAnneeScolaireId(
-                        Long affectationId,
-                        Long anneeScolaireId);
+    List<Note> findByAffectationIdAndAnneeScolaireId(
+            Long affectationId,
+            Long anneeScolaireId
+    );
 
-        List<Note> findByAnneeScolaireIdAndPeriodeAndTypePeriode(
-                        Long anneeScolaireId,
-                        Integer periode,
-                        TypePeriode typePeriode);
-        
+    List<Note> findByAnneeScolaireIdAndPeriodeAndTypePeriode(
+            Long anneeScolaireId,
+            Integer periode,
+            TypePeriode typePeriode
+    );
+
+    List<Note> findByAffectationIdAndAnneeScolaireIdAndPeriodeAndTypePeriode(
+            Long affectationId,
+            Long anneeScolaireId,
+            Integer periode,
+            TypePeriode typePeriode
+    );
+
+    List<Note> findByAffectationClasseIdAndAnneeScolaireIdAndPeriodeAndTypePeriode(
+        Long classeId,
+        Long anneeScolaireId,
+        Integer periode,
+        TypePeriode typePeriode
+);
+        @Query("""
+                            SELECT n
+                            FROM Note n
+                            WHERE n.affectation.classe.id = :classeId
+                            AND n.anneeScolaire.id = :anneeScolaireId
+                            AND n.periode = :periode
+                            AND n.typePeriode = :typePeriode
+                        """)
+        List<Note> findByClasseAndPeriode(
+                        @Param("classeId") Long classeId,
+                        @Param("anneeScolaireId") Long anneeScolaireId,
+                        @Param("periode") Integer periode,
+                        @Param("typePeriode") TypePeriode typePeriode);
 }

@@ -29,7 +29,7 @@ public class Classe {
     @JsonIgnore
     private List<Inscription> inscriptions;
 
-   @OneToMany(mappedBy = "classe", cascade = CascadeType.ALL)
-@JsonIgnore   // 🔥 AJOUTE ÇA
-private List<ClasseMatiere> classeMatieres;
+    @OneToMany(mappedBy = "classe", cascade = CascadeType.ALL)
+    @JsonIgnore // 🔥 AJOUTE ÇA
+    private List<ClasseMatiere> classeMatieres;
 }

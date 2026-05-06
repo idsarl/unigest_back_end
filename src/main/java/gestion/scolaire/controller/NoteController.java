@@ -1,15 +1,13 @@
 package gestion.scolaire.controller;
 
-import org.springframework.web.bind.annotation.GetMapping;
-
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.bind.annotation.RestController;
 
+import gestion.scolaire.dto.NoteBatchRequest;
 import gestion.scolaire.model.Note;
 import gestion.scolaire.model.TypeNote;
 import gestion.scolaire.model.TypePeriode;
@@ -30,6 +28,7 @@ public class NoteController {
     public ResponseEntity<Note> ajouterNote(
             @RequestParam Long etudiantId,
             @RequestParam Long affectationId,
+            @RequestParam Long matiereId,
             @RequestParam double valeur,
             @RequestParam TypeNote type,
             @RequestParam Integer periode,
@@ -38,6 +37,7 @@ public class NoteController {
         Note note = noteService.ajouterNote(
                 etudiantId,
                 affectationId,
+                matiereId,
                 valeur,
                 type,
                 periode,
@@ -45,6 +45,18 @@ public class NoteController {
         );
 
         return new ResponseEntity<>(note, HttpStatus.CREATED);
+    }
+
+    /**
+     * Ajouter plusieurs notes
+     */
+    @PostMapping("/batch")
+    public ResponseEntity<List<Note>> ajouterNotesBatch(
+            @RequestBody List<NoteBatchRequest> notes) {
+
+        return ResponseEntity.ok(
+                noteService.ajouterNotesBatch(notes)
+        );
     }
 
     /**
@@ -65,23 +77,48 @@ public class NoteController {
      * Supprimer une note
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> supprimerNote(@PathVariable Long id) {
+    public ResponseEntity<Void> supprimerNote(
+            @PathVariable Long id) {
+
         noteService.supprimerNote(id);
+
         return ResponseEntity.noContent().build();
     }
 
     /**
-     * Récupérer une note par ID
+     * Récupérer une note
      */
     @GetMapping("/{id}")
-    public ResponseEntity<Note> getNoteById(@PathVariable Long id) {
+    public ResponseEntity<Note> getNoteById(
+            @PathVariable Long id) {
+
         return ResponseEntity.ok(
                 noteService.getNoteById(id)
         );
     }
 
     /**
-     * Notes d’un étudiant (année active)
+     * Notes par classe et période
+     */
+    @GetMapping("/classe/periode")
+    public ResponseEntity<List<Note>> getNotesParClasseEtPeriode(
+            @RequestParam Long classeId,
+            @RequestParam Long anneeScolaireId,
+            @RequestParam Integer periode,
+            @RequestParam TypePeriode typePeriode) {
+
+        return ResponseEntity.ok(
+                noteService.getNotesParClasseEtPeriode(
+                        classeId,
+                        anneeScolaireId,
+                        periode,
+                        typePeriode
+                )
+        );
+    }
+
+    /**
+     * Notes d’un étudiant
      */
     @GetMapping("/etudiant/{etudiantId}")
     public ResponseEntity<List<Note>> getNotesEtudiant(
@@ -111,19 +148,21 @@ public class NoteController {
     }
 
     /**
-     * Notes par affectation (année active)
+     * Notes par affectation
      */
     @GetMapping("/affectation/{affectationId}")
     public ResponseEntity<List<Note>> getNotesParAffectation(
             @PathVariable Long affectationId) {
 
         return ResponseEntity.ok(
-                noteService.getNotesParAffectation(affectationId)
+                noteService.getNotesParAffectation(
+                        affectationId
+                )
         );
     }
 
     /**
-     * Notes par affectation et période (année active)
+     * Notes par affectation et période
      */
     @GetMapping("/affectation/{affectationId}/periode")
     public ResponseEntity<List<Note>> getNotesParAffectationEtPeriode(
@@ -141,7 +180,7 @@ public class NoteController {
     }
 
     /**
-     * Notes par période et année scolaire
+     * Notes par période
      */
     @GetMapping("/periode")
     public ResponseEntity<List<Note>> getNotesParPeriode(
@@ -175,7 +214,7 @@ public class NoteController {
     }
 
     /**
-     * Moyenne d’un étudiant par période
+     * Moyenne étudiant
      */
     @GetMapping("/etudiant/{etudiantId}/moyenne")
     public ResponseEntity<Double> calculerMoyenneEtudiant(
