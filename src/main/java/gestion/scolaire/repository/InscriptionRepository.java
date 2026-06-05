@@ -31,4 +31,13 @@ public interface InscriptionRepository extends JpaRepository<Inscription, Long> 
             AND i.statut = 'INSCRIT'
             """)
     List<Inscription> findEtudiantsActifsByClasse(Long classeId);
+
+    @Query("""
+            SELECT count(i)
+            FROM Inscription i
+            WHERE i.classe.id = :classeId
+            AND i.anneeScolaire.active = true
+            AND i.statut = 'INSCRIT'
+            """)
+    long countEtudiantsActifsByClasse(Long classeId);
 }

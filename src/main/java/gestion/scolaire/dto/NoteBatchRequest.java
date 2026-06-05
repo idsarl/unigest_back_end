@@ -14,4 +14,5 @@ public class NoteBatchRequest {
     private TypeNote type;
     private Integer periode;
     private TypePeriode typePeriode;
+    private java.time.LocalDate dateEvaluation;
 }

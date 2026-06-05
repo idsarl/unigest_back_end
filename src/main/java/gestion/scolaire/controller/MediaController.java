@@ -70,7 +70,7 @@ public class MediaController {
                 jService.getByTypeAndReference(type, referenceId));
     }
 
-    @GetMapping("/{id}/fichier")
+    @GetMapping({ "/{id}/fichier", "/{id}/fichier/{fileName:.+}" })
     public ResponseEntity<byte[]> getFile(@PathVariable Long id) {
 
         Medias m = jRepository.findById(id)
@@ -82,7 +82,14 @@ public class MediaController {
         }
 
         try {
-            byte[] fileBytes = fileUpload.getFileByName(m.getFichier());
+            byte[] fileBytes;
+            try {
+                fileBytes = fileUpload.getFileByName(m.getFichier());
+            } catch (Exception e) {
+                // Fallback to local storage if FTP fails or not configured
+                java.nio.file.Path localPath = java.nio.file.Paths.get(System.getProperty("user.home"), "unigest", m.getFichier());
+                fileBytes = java.nio.file.Files.readAllBytes(localPath);
+            }
 
             if (fileBytes == null || fileBytes.length == 0) {
                 return ResponseEntity.notFound().build();

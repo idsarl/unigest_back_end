@@ -65,8 +65,9 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
         Long anneeScolaireId,
         Integer periode,
         TypePeriode typePeriode
-);
-        @Query("""
+    );
+
+    @Query("""
                             SELECT n
                             FROM Note n
                             WHERE n.affectation.classe.id = :classeId
@@ -74,9 +75,30 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
                             AND n.periode = :periode
                             AND n.typePeriode = :typePeriode
                         """)
-        List<Note> findByClasseAndPeriode(
-                        @Param("classeId") Long classeId,
-                        @Param("anneeScolaireId") Long anneeScolaireId,
-                        @Param("periode") Integer periode,
-                        @Param("typePeriode") TypePeriode typePeriode);
+    List<Note> findByClasseAndPeriode(
+                    @Param("classeId") Long classeId,
+                    @Param("anneeScolaireId") Long anneeScolaireId,
+                    @Param("periode") Integer periode,
+                    @Param("typePeriode") TypePeriode typePeriode);
+
+    @Query("""
+                            SELECT AVG(n.valeur)
+                            FROM Note n
+                            WHERE n.affectation.enseignant.id = :enseignantId
+                            AND n.matiere.nom = :matiereNom
+                        """)
+    Double findAverageByAffectationEnseignantIdAndMatiereNom(
+                    @Param("enseignantId") Long enseignantId,
+                    @Param("matiereNom") String matiereNom);
+
+    @Query("""
+                            SELECT n.affectation.classe.id, AVG(n.valeur)
+                            FROM Note n
+                            WHERE n.affectation.enseignant.id = :enseignantId
+                            AND n.matiere.nom = :matiereNom
+                            GROUP BY n.affectation.classe.id
+                        """)
+    List<Object[]> findAverageByAffectationEnseignantIdAndMatiereNomGroupByClasse(
+                    @Param("enseignantId") Long enseignantId,
+                    @Param("matiereNom") String matiereNom);
 }

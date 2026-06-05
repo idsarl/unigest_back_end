@@ -58,5 +58,4 @@ public class CustomUserDetailService implements UserDetailsService {
                     new SimpleGrantedAuthority(user.getRole().name())
             )
     );
-}
-}
+}}

@@ -1,9 +1,10 @@
 package gestion.scolaire.model;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import jakarta.persistence.*;
-
 
 import lombok.Data;
 
@@ -24,4 +25,10 @@ public class Message {
     private String contenu;
 
     private LocalDateTime dateEnvoi;
+
+    private boolean lu = false;
+    
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "message_id")
+    private List<Medias> fichiers = new ArrayList<>();
 }

@@ -1,7 +1,10 @@
 package gestion.scolaire.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -10,12 +13,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import gestion.scolaire.dto.AppelBatchRequest;
 import gestion.scolaire.dto.AppelItem;
+import gestion.scolaire.dto.ClasseAttendanceSummaryDTO;
 import gestion.scolaire.model.Appel;
 import gestion.scolaire.model.Etudiant;
 import gestion.scolaire.model.Seance;
 import gestion.scolaire.model.StatutPresence;
 import gestion.scolaire.repository.AppelRepository;
 import gestion.scolaire.repository.EtudiantRepository;
+import gestion.scolaire.repository.InscriptionRepository;
 import gestion.scolaire.repository.SeanceRepository;
 import lombok.RequiredArgsConstructor;
 
@@ -27,6 +32,7 @@ public class AppelService {
     private final AppelRepository appelRepository;
     private final SeanceRepository seanceRepository;
     private final EtudiantRepository etudiantRepository;
+    private final InscriptionRepository inscriptionRepository;
 
     /**
      * Faire l'appel d'un étudiant dans une séance
@@ -225,4 +231,69 @@ public class AppelService {
     public void supprimerAppelsSeance(Long seanceId) {
         appelRepository.deleteBySeanceId(seanceId);
     }
+
+    /**
+     * Résumé de présence d'une classe
+     */
+    @Transactional(readOnly = true)
+    public ClasseAttendanceSummaryDTO getResumeParClasse(
+            Long classeId,
+            Long seanceId) {
+
+        long effectif = inscriptionRepository.countEtudiantsActifsByClasse(classeId);
+
+        Seance seance;
+        if (seanceId != null) {
+            seance = seanceRepository.findById(seanceId)
+                    .orElseThrow(() -> new RuntimeException("Séance introuvable"));
+
+            if (seance.getAffectation() == null ||
+                    !seance.getAffectation().getClasse().getId().equals(classeId)) {
+                throw new RuntimeException(
+                        "La séance ne correspond pas à cette classe");
+            }
+        } else {
+            seance = trouverSeanceEnCoursOuPrecedenteParClasse(classeId)
+                    .orElseThrow(() -> new RuntimeException(
+                            "Aucune séance en cours ou précédente pour cette classe aujourd'hui"));
+            seanceId = seance.getId();
+        }
+
+        long absent = appelRepository.countBySeanceIdAndStatut(seanceId, StatutPresence.ABSENT);
+        long retard = appelRepository.countBySeanceIdAndStatut(seanceId, StatutPresence.RETARD);
+        // By default, everyone is PRESENT unless marked ABSENT or RETARD
+        long present = effectif - absent - retard;
+
+        ClasseAttendanceSummaryDTO dto = new ClasseAttendanceSummaryDTO();
+        dto.setClasseId(classeId);
+        dto.setSeanceId(seanceId);
+        dto.setEffectif(effectif);
+        dto.setPresent(present);
+        dto.setAbsent(absent);
+        dto.setRetard(retard);
+
+        return dto;
+    }
+
+    private Optional<Seance> trouverSeanceEnCoursOuPrecedenteParClasse(Long classeId) {
+        LocalDate aujourd_hui = LocalDate.now();
+        LocalTime maintenant = LocalTime.now();
+
+        List<Seance> seances = seanceRepository.findByAffectationClasseIdAndDate(classeId, aujourd_hui);
+
+        var seanceEnCours = seances.stream()
+                .filter(s -> s.getHeureDebut() != null && s.getHeureFin() != null
+                        && !maintenant.isBefore(s.getHeureDebut())
+                        && !maintenant.isAfter(s.getHeureFin()))
+                .findFirst();
+
+        if (seanceEnCours.isEmpty()) {
+            seanceEnCours = seances.stream()
+                    .filter(s -> s.getHeureDebut() != null && s.getHeureDebut().isBefore(maintenant))
+                    .max(Comparator.comparing(Seance::getHeureDebut));
+        }
+
+        return seanceEnCours;
+    }
+
 }

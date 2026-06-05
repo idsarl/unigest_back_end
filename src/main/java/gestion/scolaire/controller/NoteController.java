@@ -32,7 +32,8 @@ public class NoteController {
             @RequestParam double valeur,
             @RequestParam TypeNote type,
             @RequestParam Integer periode,
-            @RequestParam TypePeriode typePeriode) {
+            @RequestParam TypePeriode typePeriode,
+            @RequestParam(required = false) java.time.LocalDate dateEvaluation) {
 
         Note note = noteService.ajouterNote(
                 etudiantId,
@@ -41,7 +42,8 @@ public class NoteController {
                 valeur,
                 type,
                 periode,
-                typePeriode
+                typePeriode,
+                dateEvaluation
         );
 
         return new ResponseEntity<>(note, HttpStatus.CREATED);

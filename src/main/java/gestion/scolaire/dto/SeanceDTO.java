@@ -9,6 +9,7 @@ public class SeanceDTO {
     private String professeur;
     private String matiere;
     private String classe;
+    private Long classeId;
     private String filiere;
     private String heureDebut;
     private String heureFin;

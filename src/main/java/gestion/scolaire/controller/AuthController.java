@@ -79,6 +79,7 @@ public class AuthController {
         authData.put("type", "Bearer");
         
         // Ajout des infos utilisateur
+        authData.put("id", user.getId());
         authData.put("nom", user.getNom());
         authData.put("prenom", user.getPrenom());
         authData.put("role", user.getRole());

@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import gestion.scolaire.dto.AppelBatchRequest;
+import gestion.scolaire.dto.ClasseAttendanceSummaryDTO;
 import gestion.scolaire.model.Appel;
 import gestion.scolaire.model.StatutPresence;
 import gestion.scolaire.service.AppelService;
@@ -88,6 +89,19 @@ public class AppelController {
 
                 return ResponseEntity.ok(
                                 appelService.getAppelsParEtudiant(etudiantId));
+        }
+
+        /**
+         * 5️⃣1️⃣ Résumé de présence pour une classe
+         */
+        @GetMapping("/classe/{classeId}/resume")
+        public ResponseEntity<ClasseAttendanceSummaryDTO> getResumeParClasse(
+                        @PathVariable Long classeId,
+                        @RequestParam(required = false) Long seanceId) {
+
+                return ResponseEntity.ok(appelService.getResumeParClasse(
+                                classeId,
+                                seanceId));
         }
 
         /**

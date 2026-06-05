@@ -59,6 +59,13 @@ public class SecurityConfig {
                                                 .requestMatchers(
                                                                 "/api/auth/login",
                                                                 "/api/admins/**",
+                                                                "/api/seances/**",
+                                                                "/api/appels/**",
+                                                                "/api/affectations/**",
+                                                                "/api/inscriptions/**",
+                                                                "/api/notes/**",
+                                                                "/api/etudiants/**",
+                                                                "/api/annee-scolaire/**",
                                                                 "/api/v3/api-docs/**", // Correspond à
                                                                "/api/medias/*/fichier",                     // springdoc.api-docs.path
                                                                 "/api/swagger-ui/**", // Correspond au dossier des
@@ -67,7 +74,8 @@ public class SecurityConfig {
                                                                                         // springdoc.swagger-ui.path
                                                                 "/swagger-ui/**", // Sécurité au cas où le mapping par
                                                                                   // défaut persiste
-                                                                "/v3/api-docs/**")
+                                                                "/v3/api-docs/**",
+                                                                "/ws/**")
                                                 .permitAll()
 
                                                 .anyRequest().authenticated())
