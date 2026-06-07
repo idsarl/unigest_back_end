@@ -2,14 +2,19 @@ package gestion.scolaire.model;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.HashSet;
+import java.util.Set;
 
 import gestion.scolaire.dto.JourSemaine;
 import gestion.scolaire.dto.Periodicite;
 import gestion.scolaire.dto.TypeEmploi;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -40,12 +45,12 @@ public class EmploiDuTemps {
     @JoinColumn(name = "matiere_id", nullable = false)
     private Matiere matiere;
 
-    // Salle
-    private String salle;
-
     // Jour
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "emploi_du_temps_jours", joinColumns = @JoinColumn(name = "emploi_du_temps_id"))
+    @Column(name = "jour")
     @Enumerated(EnumType.STRING)
-    private JourSemaine jour;
+    private Set<JourSemaine> jours = new HashSet<>();
 
     // Heure début
     private LocalTime heureDebut;
@@ -63,7 +68,7 @@ public class EmploiDuTemps {
     private String couleur;
 
     @Enumerated(EnumType.STRING)
-private TypeEmploi type = TypeEmploi.COURS;
+    private TypeEmploi type = TypeEmploi.COURS;
 
     // Actif ou non
     private boolean actif = true;
@@ -75,4 +80,8 @@ private TypeEmploi type = TypeEmploi.COURS;
     // Description
     @Column(columnDefinition = "TEXT")
     private String description;
+
+    @ManyToOne
+    @JoinColumn(name = "annee_scolaire_id")
+    private AnneeScolaire anneeScolaire;
 }

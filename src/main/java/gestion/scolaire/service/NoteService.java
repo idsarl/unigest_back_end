@@ -37,7 +37,7 @@ public class NoteService {
         private final AnneeScolaireService anneeScolaireService;
 
         /**
-         * Ajouter une note
+         * Ajouter une note 
          */
         @Transactional
         public Note ajouterNote(

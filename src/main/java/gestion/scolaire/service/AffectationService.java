@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import gestion.scolaire.dto.AffectationDTO;
 import gestion.scolaire.model.Affectation;
+import gestion.scolaire.model.AnneeScolaire;
 import gestion.scolaire.model.Classe;
 import gestion.scolaire.model.Enseignant;
 import gestion.scolaire.model.Matiere;
@@ -30,6 +31,8 @@ public class AffectationService {
 
     @Autowired
     private MatiereRepository matiereRepository;
+    @Autowired
+    private  AnneeScolaireService anneeScolaireService;
 
     // 1️⃣ Ajouter une affectation
     public Affectation ajouterAffectation(Long enseignantId,
@@ -48,7 +51,9 @@ public class AffectationService {
     Classe classe = classeRepository.findById(classeId)
             .orElseThrow(() -> new RuntimeException("Classe introuvable"));
 
+    AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
     Affectation affectation = new Affectation();
+    affectation.setAnneeScolaire(anneeActive);
     affectation.setEnseignant(enseignant);
     affectation.setMatieres(matieres); // ✅ IMPORTANT
     affectation.setClasse(classe);

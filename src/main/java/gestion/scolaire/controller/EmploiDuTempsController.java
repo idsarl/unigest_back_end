@@ -1,5 +1,8 @@
 package gestion.scolaire.controller;
 
+import java.time.LocalDate;
+import java.util.List;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -31,14 +34,18 @@ public class EmploiDuTempsController {
     @PutMapping("/{id}")
     public ResponseEntity<?> update(
             @PathVariable Long id,
-            @RequestBody EmploiDuTemps dto
-    ) {
+            @RequestBody EmploiDuTemps dto) {
         return ResponseEntity.ok(service.update(id, dto));
     }
 
     @GetMapping
     public ResponseEntity<?> getAll() {
         return ResponseEntity.ok(service.getAll());
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<List<EmploiDuTemps>> getAllValidate() {
+        return ResponseEntity.ok(service.getAllValidate(LocalDate.now()));
     }
 
     @GetMapping("/{id}")
@@ -57,16 +64,15 @@ public class EmploiDuTempsController {
         return ResponseEntity.ok(service.getByClasse(classeId));
     }
 
-
     @GetMapping("/export/pdf/{classeId}")
-public ResponseEntity<byte[]> exportPdf(@PathVariable Long classeId) {
+    public ResponseEntity<byte[]> exportPdf(@PathVariable Long classeId) {
 
-    byte[] pdf = service.exportPdf(classeId);
+        byte[] pdf = service.exportPdf(classeId);
 
-    return ResponseEntity.ok()
-            .header(HttpHeaders.CONTENT_DISPOSITION,
-                    "attachment; filename=emploi.pdf")
-            .contentType(MediaType.APPLICATION_PDF)
-            .body(pdf);
-}
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=emploi.pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
 }
