@@ -2,13 +2,16 @@ package gestion.scolaire.controller;
 
 import java.util.List;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import gestion.scolaire.model.Bulletin;
 import gestion.scolaire.model.TypePeriode;
 import gestion.scolaire.service.BulletinService;
+import gestion.scolaire.service.BulletinPdfService;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -17,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 public class BulletinController {
 
     private final BulletinService bulletinService;
+    private final BulletinPdfService bulletinPdfService;
 
     /**
      * Générer un bulletin
@@ -125,6 +129,30 @@ public class BulletinController {
                         typePeriode
                 )
         );
+    }
+
+    /**
+     * Télécharger le PDF d'un bulletin
+     * GET /api/bulletins/{id}/pdf
+     */
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> telechargerPdf(@PathVariable Long id) {
+
+        byte[] pdfBytes = bulletinPdfService.genererPdf(id);
+
+        Bulletin bulletin = bulletinService.getBulletin(id);
+        String nomFichier = String.format("bulletin_%s_%s_%s%d.pdf",
+                bulletin.getEtudiant().getNom().toLowerCase().replace(" ", "_"),
+                bulletin.getEtudiant().getPrenom().toLowerCase().replace(" ", "_"),
+                bulletin.getTypePeriode().name().toLowerCase() + "_",
+                bulletin.getPeriode());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", nomFichier);
+        headers.setContentLength(pdfBytes.length);
+
+        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
     }
 
     /**

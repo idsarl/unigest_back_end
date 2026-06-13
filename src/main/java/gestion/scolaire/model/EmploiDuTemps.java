@@ -32,17 +32,17 @@ public class EmploiDuTemps {
 
     // Classe concernée
     @ManyToOne
-    @JoinColumn(name = "classe_id", nullable = false)
+    @JoinColumn(name = "classe_id", nullable = true)
     private Classe classe;
 
     // Enseignant
     @ManyToOne
-    @JoinColumn(name = "enseignant_id", nullable = false)
+    @JoinColumn(name = "enseignant_id", nullable = true)
     private Enseignant enseignant;
 
     // Matière
     @ManyToOne
-    @JoinColumn(name = "matiere_id", nullable = false)
+    @JoinColumn(name = "matiere_id", nullable = true)
     private Matiere matiere;
 
     // Jour
@@ -72,7 +72,7 @@ public class EmploiDuTemps {
 
     // Actif ou non
     private boolean actif = true;
-
+ 
     // Type périodicité
     @Enumerated(EnumType.STRING)
     private Periodicite periodicite;

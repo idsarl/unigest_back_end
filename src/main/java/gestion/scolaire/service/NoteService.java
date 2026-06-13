@@ -2,7 +2,10 @@ package gestion.scolaire.service;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -278,34 +281,50 @@ public class NoteService {
         }
 
         /**
-         * Moyenne pondérée étudiant
+         * Moyenne générale pondérée par matière.
+         *
+         * Formule correcte :
+         *   1. Pour chaque matière → moyenne_matiere = SUM(valeurs) / nb_notes
+         *   2. moyenne_generale = SUM(moyenne_matiere × coeff) / SUM(coeff)
+         *
+         * L'ancienne formule SUM(valeur×coeff)/SUM(coeff) était fausse
+         * car le coefficient d'une matière était comptabilisé autant de fois
+         * qu'il y avait de notes pour cette matière.
          */
         public double calculerMoyenneEtudiant(
                         Long etudiantId,
                         Integer periode,
                         TypePeriode typePeriode) {
 
-                List<Note> notes = getNotesEtudiantPeriode(
-                                etudiantId,
-                                periode,
-                                typePeriode);
+                List<Note> notes = getNotesEtudiantPeriode(etudiantId, periode, typePeriode);
 
                 if (notes.isEmpty()) {
                         return 0;
                 }
 
-                double totalPoints = notes.stream()
-                                .mapToDouble(note -> note.getValeur() * note.getCoefficient())
-                                .sum();
+                // Grouper les notes par matière
+                Map<Long, List<Note>> parMatiere = notes.stream()
+                                .collect(Collectors.groupingBy(n -> n.getMatiere().getId()));
 
-                double totalCoefficients = notes.stream()
-                                .mapToDouble(Note::getCoefficient)
-                                .sum();
+                double totalPondere   = 0;
+                double totalCoeff     = 0;
 
-                if (totalCoefficients == 0) {
-                        return 0;
+                for (Map.Entry<Long, List<Note>> entry : parMatiere.entrySet()) {
+                        List<Note> notesMatiere = entry.getValue();
+
+                        // Moyenne simple de toutes les notes de cette matière
+                        double moyenneMatiere = notesMatiere.stream()
+                                        .mapToDouble(Note::getValeur)
+                                        .average()
+                                        .orElse(0);
+
+                        // Le coefficient est identique pour toutes les notes de la même matière
+                        double coeff = notesMatiere.get(0).getCoefficient();
+
+                        totalPondere += moyenneMatiere * coeff;
+                        totalCoeff   += coeff;
                 }
 
-                return totalPoints / totalCoefficients;
+                return totalCoeff > 0 ? totalPondere / totalCoeff : 0;
         }
 }

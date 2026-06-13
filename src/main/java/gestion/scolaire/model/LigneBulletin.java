@@ -1,5 +1,6 @@
 package gestion.scolaire.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 
@@ -14,6 +15,7 @@ public class LigneBulletin {
     private Long id;
 
     @ManyToOne(optional = false)
+    @JsonIgnore
     private Bulletin bulletin;
 
     @ManyToOne(optional = false)

@@ -1,21 +1,14 @@
 package gestion.scolaire.service;
 
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import gestion.scolaire.model.AnneeScolaire;
-import gestion.scolaire.model.Bulletin;
-import gestion.scolaire.model.Classe;
-import gestion.scolaire.model.Etudiant;
-import gestion.scolaire.model.Inscription;
-import gestion.scolaire.model.TypePeriode;
-import gestion.scolaire.repository.BulletinRepository;
-import gestion.scolaire.repository.EtudiantRepository;
+import gestion.scolaire.model.*;
+import gestion.scolaire.repository.*;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -25,177 +18,304 @@ public class BulletinService {
 
     private final NoteService noteService;
     private final BulletinRepository bulletinRepository;
+    private final LigneBulletinRepository ligneBulletinRepository;
+    private final ClasseMatiereRepository classeMatiereRepository;
     private final EtudiantRepository etudiantRepository;
     private final AnneeScolaireService anneeScolaireService;
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Génération
+    // ─────────────────────────────────────────────────────────────────────────
+
     /**
-     * Générer un bulletin
+     * Générer le bulletin d'un étudiant pour une période donnée.
+     *
+     * Algorithme :
+     *  1. Récupérer les notes de l'étudiant pour la période
+     *  2. Grouper par matière → calculer la moyenne simple par matière
+     *  3. Appliquer le coefficient (ClasseMatiere) → moyenne pondérée générale
+     *  4. Créer les LigneBulletin (une par matière)
+     *  5. Calculer l'appréciation
+     *  6. Recalculer les rangs de toute la classe
      */
     public Bulletin genererBulletin(
             Long etudiantId,
             Integer periode,
             TypePeriode typePeriode) {
 
-        // Vérifier étudiant
         Etudiant etudiant = etudiantRepository.findById(etudiantId)
                 .orElseThrow(() -> new RuntimeException("Étudiant introuvable"));
 
-        // Année scolaire active
         AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
 
-        // Inscription active de l’étudiant
         Inscription inscriptionActive = etudiant.getInscription()
                 .stream()
-                .filter(inscription ->
-                        inscription.getAnneeScolaire().getId()
-                                .equals(anneeActive.getId()))
+                .filter(i -> i.getAnneeScolaire().getId().equals(anneeActive.getId()))
                 .findFirst()
-                .orElseThrow(() ->
-                        new RuntimeException("Aucune inscription active trouvée"));
+                .orElseThrow(() -> new RuntimeException("Aucune inscription active trouvée"));
 
-        // Vérifier si bulletin existe déjà
-        Optional<Bulletin> bulletinExistant =
-                bulletinRepository
-                        .findByEtudiantIdAndAnneeScolaireIdAndPeriodeAndTypePeriode(
-                                etudiantId,
-                                anneeActive.getId(),
-                                periode,
-                                typePeriode
-                        );
+        Classe classe = inscriptionActive.getClasse();
 
-        if (bulletinExistant.isPresent()) {
-            throw new RuntimeException(
-                    "Le bulletin existe déjà pour cette période");
-        }
+        // Empêcher les doublons
+        bulletinRepository
+                .findByEtudiantIdAndAnneeScolaireIdAndPeriodeAndTypePeriode(
+                        etudiantId, anneeActive.getId(), periode, typePeriode)
+                .ifPresent(b -> {
+                    throw new RuntimeException("Le bulletin existe déjà pour cette période");
+                });
 
-        // Calcul moyenne générale
-        double moyenne = noteService.calculerMoyenneEtudiant(
-                etudiantId,
-                periode,
-                typePeriode
-        );
+        // Calcul des lignes + moyenne générale
+        ResultatCalcul resultat = calculerMoyennesEtLignes(
+                etudiantId, classe.getId(), anneeActive.getId(), periode, typePeriode);
 
-        // Création bulletin
+        // Créer le bulletin
         Bulletin bulletin = new Bulletin();
         bulletin.setEtudiant(etudiant);
-        bulletin.setClasse(inscriptionActive.getClasse());
+        bulletin.setClasse(classe);
         bulletin.setAnneeScolaire(anneeActive);
         bulletin.setPeriode(periode);
         bulletin.setTypePeriode(typePeriode);
-        bulletin.setMoyenneGenerale(moyenne);
+        bulletin.setMoyenneGenerale(arrondir2(resultat.moyenneGenerale));
+        bulletin.setAppreciation(calculerAppreciation(resultat.moyenneGenerale));
         bulletin.setDateGeneration(LocalDate.now());
 
-        return bulletinRepository.save(bulletin);
+        Bulletin saved = bulletinRepository.save(bulletin);
+
+        // Sauvegarder les lignes par matière
+        for (LigneBulletin ligne : resultat.lignes) {
+            ligne.setBulletin(saved);
+        }
+        ligneBulletinRepository.saveAll(resultat.lignes);
+        saved.setLignes(resultat.lignes);
+
+        // Recalculer les rangs de toute la classe pour cette période
+        recalculerRangs(classe.getId(), anneeActive.getId(), periode, typePeriode);
+
+        return saved;
     }
 
     /**
-     * Récupérer un bulletin par ID
-     */
-    @Transactional(readOnly = true)
-    public Bulletin getBulletin(Long bulletinId) {
-        return bulletinRepository.findById(bulletinId)
-                .orElseThrow(() ->
-                        new RuntimeException("Bulletin introuvable"));
-    }
-
-    /**
-     * Tous les bulletins d’un étudiant
-     */
-    @Transactional(readOnly = true)
-    public List<Bulletin> getBulletinsEtudiant(Long etudiantId) {
-        return bulletinRepository.findByEtudiantId(etudiantId);
-    }
-
-    /**
-     * Bulletin d’un étudiant pour une période précise
-     */
-    @Transactional(readOnly = true)
-    public Bulletin getBulletinEtudiantPeriode(
-            Long etudiantId,
-            Integer periode,
-            TypePeriode typePeriode) {
-
-        AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
-
-        return bulletinRepository
-                .findByEtudiantIdAndAnneeScolaireIdAndPeriodeAndTypePeriode(
-                        etudiantId,
-                        anneeActive.getId(),
-                        periode,
-                        typePeriode
-                )
-                .orElseThrow(() ->
-                        new RuntimeException("Bulletin introuvable"));
-    }
-
-    /**
-     * Bulletins d’une classe sur l’année active
-     */
-    @Transactional(readOnly = true)
-    public List<Bulletin> getBulletinsClasse(Long classeId) {
-
-        AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
-
-        return bulletinRepository.findByClasseIdAndAnneeScolaireId(
-                classeId,
-                anneeActive.getId()
-        );
-    }
-
-    /**
-     * Bulletins d’une classe par période
-     */
-    @Transactional(readOnly = true)
-    public List<Bulletin> getBulletinsClassePeriode(
-            Long classeId,
-            Integer periode,
-            TypePeriode typePeriode) {
-
-        AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
-
-        return bulletinRepository
-                .findByClasseIdAndAnneeScolaireIdAndPeriodeAndTypePeriode(
-                        classeId,
-                        anneeActive.getId(),
-                        periode,
-                        typePeriode
-                );
-    }
-
-    /**
-     * Régénérer un bulletin
+     * Régénérer un bulletin existant (notes modifiées ou ajoutées après coup).
      */
     public Bulletin regenererBulletin(
             Long etudiantId,
             Integer periode,
             TypePeriode typePeriode) {
 
-        Bulletin bulletin = getBulletinEtudiantPeriode(
+        Bulletin bulletin = getBulletinEtudiantPeriode(etudiantId, periode, typePeriode);
+        AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
+
+        ResultatCalcul resultat = calculerMoyennesEtLignes(
                 etudiantId,
+                bulletin.getClasse().getId(),
+                anneeActive.getId(),
                 periode,
-                typePeriode
-        );
+                typePeriode);
 
-        double nouvelleMoyenne =
-                noteService.calculerMoyenneEtudiant(
-                        etudiantId,
-                        periode,
-                        typePeriode
-                );
+        // Supprimer les anciennes lignes
+        List<LigneBulletin> anciennesLignes = ligneBulletinRepository.findByBulletin(bulletin);
+        ligneBulletinRepository.deleteAll(anciennesLignes);
 
-        bulletin.setMoyenneGenerale(nouvelleMoyenne);
+        // Mettre à jour le bulletin
+        bulletin.setMoyenneGenerale(arrondir2(resultat.moyenneGenerale));
+        bulletin.setAppreciation(calculerAppreciation(resultat.moyenneGenerale));
         bulletin.setDateGeneration(LocalDate.now());
+        Bulletin saved = bulletinRepository.save(bulletin);
 
-        return bulletinRepository.save(bulletin);
+        // Sauvegarder les nouvelles lignes
+        for (LigneBulletin ligne : resultat.lignes) {
+            ligne.setBulletin(saved);
+        }
+        ligneBulletinRepository.saveAll(resultat.lignes);
+        saved.setLignes(resultat.lignes);
+
+        // Recalculer les rangs
+        recalculerRangs(
+                bulletin.getClasse().getId(),
+                anneeActive.getId(),
+                periode,
+                typePeriode);
+
+        return saved;
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Calcul central
+    // ─────────────────────────────────────────────────────────────────────────
+
     /**
-     * Supprimer un bulletin
+     * Calcule la moyenne générale et construit les LigneBulletin.
+     *
+     * Formule :
+     *   moyenneMatiere  = SUM(valeurs) / nb_notes_de_cette_matiere
+     *   moyenneGenerale = SUM(moyenneMatiere × coeff) / SUM(coeff)
+     *
+     * Seules les matières ayant au moins une note sont incluses.
      */
+    private ResultatCalcul calculerMoyennesEtLignes(
+            Long etudiantId,
+            Long classeId,
+            Long anneeId,
+            Integer periode,
+            TypePeriode typePeriode) {
+
+        // Notes de l'étudiant pour la période
+        List<Note> notes = noteService.getNotesEtudiantPeriode(etudiantId, periode, typePeriode);
+
+        // Regrouper par matière : matiereId → liste de notes
+        Map<Long, List<Note>> parMatiere = notes.stream()
+                .collect(Collectors.groupingBy(n -> n.getMatiere().getId()));
+
+        // Coefficients définis pour la classe
+        List<ClasseMatiere> classeMatieres = classeMatiereRepository.findByClasseId(classeId);
+
+        List<LigneBulletin> lignes = new ArrayList<>();
+        double totalPondere = 0;
+        double totalCoeff   = 0;
+
+        for (ClasseMatiere cm : classeMatieres) {
+            Long matiereId = cm.getMatiere().getId();
+            List<Note> notesMatiere = parMatiere.getOrDefault(matiereId, Collections.emptyList());
+
+            if (notesMatiere.isEmpty()) {
+                // Pas de notes saisies pour cette matière → on l'ignore
+                continue;
+            }
+
+            // Moyenne simple des notes de cette matière
+            double moyenneMatiere = notesMatiere.stream()
+                    .mapToDouble(Note::getValeur)
+                    .average()
+                    .orElse(0);
+
+            double coeff = cm.getCoefficient();
+            totalPondere += moyenneMatiere * coeff;
+            totalCoeff   += coeff;
+
+            LigneBulletin ligne = new LigneBulletin();
+            ligne.setMatiere(cm.getMatiere());
+            ligne.setMoyenneMatiere(arrondir2(moyenneMatiere));
+            ligne.setCoefficient(coeff);
+            ligne.setAppreciation(calculerAppreciation(moyenneMatiere));
+            lignes.add(ligne);
+        }
+
+        double moyenneGenerale = (totalCoeff > 0) ? (totalPondere / totalCoeff) : 0;
+
+        return new ResultatCalcul(moyenneGenerale, lignes);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Rang
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Recalcule et met à jour le rang de chaque étudiant dans la classe
+     * pour la période donnée. Tri par moyenne décroissante.
+     */
+    private void recalculerRangs(
+            Long classeId,
+            Long anneeId,
+            Integer periode,
+            TypePeriode typePeriode) {
+
+        List<Bulletin> bulletins = bulletinRepository
+                .findByClasseIdAndAnneeScolaireIdAndPeriodeAndTypePeriode(
+                        classeId, anneeId, periode, typePeriode);
+
+        bulletins.sort(
+                Comparator.comparingDouble(Bulletin::getMoyenneGenerale).reversed());
+
+        for (int i = 0; i < bulletins.size(); i++) {
+            bulletins.get(i).setRang(i + 1);
+        }
+
+        bulletinRepository.saveAll(bulletins);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Appréciation
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Traduit une moyenne en appréciation textuelle.
+     * Barème standard : 0–9.99 Insuffisant | 10–11.99 Passable |
+     *                   12–13.99 Assez bien | 14–15.99 Bien |
+     *                   16–17.99 Très bien  | 18–20 Excellent
+     */
+    public static String calculerAppreciation(double moyenne) {
+        if (moyenne >= 18) return "Excellent";
+        if (moyenne >= 16) return "Très bien";
+        if (moyenne >= 14) return "Bien";
+        if (moyenne >= 12) return "Assez bien";
+        if (moyenne >= 10) return "Passable";
+        if (moyenne >=  5) return "Insuffisant";
+        return "Très insuffisant";
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Lecture
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public Bulletin getBulletin(Long bulletinId) {
+        return bulletinRepository.findById(bulletinId)
+                .orElseThrow(() -> new RuntimeException("Bulletin introuvable"));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Bulletin> getBulletinsEtudiant(Long etudiantId) {
+        return bulletinRepository.findByEtudiantId(etudiantId);
+    }
+
+    @Transactional(readOnly = true)
+    public Bulletin getBulletinEtudiantPeriode(
+            Long etudiantId, Integer periode, TypePeriode typePeriode) {
+
+        AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
+        return bulletinRepository
+                .findByEtudiantIdAndAnneeScolaireIdAndPeriodeAndTypePeriode(
+                        etudiantId, anneeActive.getId(), periode, typePeriode)
+                .orElseThrow(() -> new RuntimeException("Bulletin introuvable"));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Bulletin> getBulletinsClasse(Long classeId) {
+        AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
+        return bulletinRepository.findByClasseIdAndAnneeScolaireId(
+                classeId, anneeActive.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public List<Bulletin> getBulletinsClassePeriode(
+            Long classeId, Integer periode, TypePeriode typePeriode) {
+
+        AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
+        return bulletinRepository
+                .findByClasseIdAndAnneeScolaireIdAndPeriodeAndTypePeriode(
+                        classeId, anneeActive.getId(), periode, typePeriode);
+    }
+
     public void supprimerBulletin(Long bulletinId) {
+        bulletinRepository.delete(getBulletin(bulletinId));
+    }
 
-        Bulletin bulletin = getBulletin(bulletinId);
+    // ─────────────────────────────────────────────────────────────────────────
+    // Utilitaires
+    // ─────────────────────────────────────────────────────────────────────────
 
-        bulletinRepository.delete(bulletin);
+    private double arrondir2(double valeur) {
+        return Math.round(valeur * 100.0) / 100.0;
+    }
+
+    /** DTO interne pour transporter le résultat du calcul. */
+    private static class ResultatCalcul {
+        final double moyenneGenerale;
+        final List<LigneBulletin> lignes;
+
+        ResultatCalcul(double moyenneGenerale, List<LigneBulletin> lignes) {
+            this.moyenneGenerale = moyenneGenerale;
+            this.lignes = lignes;
+        }
     }
 }

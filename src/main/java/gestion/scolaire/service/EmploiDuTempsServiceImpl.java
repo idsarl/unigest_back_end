@@ -39,28 +39,54 @@ public class EmploiDuTempsServiceImpl implements EmploiDuTempsService {
     private final EmploiDuTempsRepository repository;
     private final AnneeScolaireService anneeScolaireService;
 
-    @Override
-    public EmploiDuTemps save(EmploiDuTemps dto) {
-        AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
-        EmploiDuTemps em = new EmploiDuTemps();
-        em.setActif(dto.isActif());
-        em.setAnneeScolaire(anneeActive);
-        em.setClasse(dto.getClasse());
-        em.setCouleur(dto.getCouleur());
-        em.setDateDebut(dto.getDateDebut());
-        em.setDateFin(dto.getDateFin());
-        em.setDescription(dto.getDescription());
-        em.setEnseignant(dto.getEnseignant());
-        em.setHeureDebut(dto.getHeureDebut());
-        em.setHeureFin(dto.getHeureFin());
-        em.setJours(dto.getJours());
-        em.setMatiere(dto.getMatiere());
-        em.setPeriodicite(dto.getPeriodicite());
-        em.setType(dto.getType());
+    // @Override
+    // public EmploiDuTemps save(EmploiDuTemps dto) {
+    //     AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
+    //     EmploiDuTemps em = new EmploiDuTemps();
+    //     em.setActif(dto.isActif());
+    //     em.setAnneeScolaire(anneeActive);
+    //     em.setClasse(dto.getClasse());
+    //     em.setCouleur(dto.getCouleur());
+    //     em.setDateDebut(dto.getDateDebut());
+    //     em.setDateFin(dto.getDateFin());
+    //     em.setDescription(dto.getDescription());
+    //     em.setEnseignant(dto.getEnseignant());
+    //     em.setHeureDebut(dto.getHeureDebut());
+    //     em.setHeureFin(dto.getHeureFin());
+    //     em.setJours(dto.getJours());
+    //     em.setMatiere(dto.getMatiere());
+    //     em.setPeriodicite(dto.getPeriodicite());
+    //     em.setType(dto.getType());
 
+    //     verifierConflit(dto);
+    //     return repository.save(dto);
+    // }@Override
+public EmploiDuTemps save(EmploiDuTemps dto) {
+    AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
+    EmploiDuTemps em = new EmploiDuTemps();
+    em.setActif(dto.isActif());
+    em.setAnneeScolaire(anneeActive);
+    em.setType(dto.getType());
+    em.setJours(dto.getJours());
+    em.setHeureDebut(dto.getHeureDebut());
+    em.setHeureFin(dto.getHeureFin());
+    em.setDateDebut(dto.getDateDebut());
+    em.setDateFin(dto.getDateFin());
+    em.setPeriodicite(dto.getPeriodicite());
+    em.setDescription(dto.getDescription());
+    em.setCouleur(dto.getCouleur());
+
+    // Champs requis seulement pour les COURS
+    if (dto.getType() == TypeEmploi.COURS) {
+        em.setClasse(dto.getClasse());
+        em.setEnseignant(dto.getEnseignant());
+        em.setMatiere(dto.getMatiere());
         verifierConflit(dto);
-        return repository.save(dto);
     }
+
+    return repository.save(em);
+}
+ 
 
     @Override
     public EmploiDuTemps update(Long id, EmploiDuTemps dto) {
