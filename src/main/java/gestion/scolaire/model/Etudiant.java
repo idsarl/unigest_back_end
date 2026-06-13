@@ -8,21 +8,15 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
-@Data
-@Entity
-public class Etudiant {
+import lombok.EqualsAndHashCode;
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@Data
+@EqualsAndHashCode(callSuper = false)
+@Entity
+public class Etudiant extends Utilisateur {
 
     @Column(unique = true)
     private String matricule;
-
-    private String nom;
-    private String prenom;
-    private String email;
-    private String telephone;
 
     private LocalDate dateNaissance;
 

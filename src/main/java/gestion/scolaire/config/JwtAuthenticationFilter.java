@@ -72,7 +72,7 @@ protected void doFilterInternal(HttpServletRequest request,
 
             String path = request.getServletPath();
 
-if (path.startsWith("/api/auth")
+if (path.equals("/api/auth/login")
         || path.startsWith("/api/admins")
         || path.contains("swagger")
         || path.contains("api-docs")) {
