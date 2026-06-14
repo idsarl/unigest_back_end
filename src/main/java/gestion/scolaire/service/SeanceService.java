@@ -88,7 +88,8 @@ public class SeanceService {
     // Récupérer séances par enseignant et date
     public List<SeanceDTO> getSeancesParEnseignantEtDate(Long enseignantId, LocalDate date) {
         List<Seance> seances = seanceRepository.findByAffectationEnseignantIdAndDate(enseignantId, date);
-        updateSeanceStatuses(seances);
+        // Ne plus mettre à jour le statut automatiquement : c'est manuel
+        // updateSeanceStatuses(seances);
         return seances.stream()
                 .map(this::convertToDTO)
                 .toList();
@@ -96,7 +97,8 @@ public class SeanceService {
 
     public List<SeanceDTO> getSeancesDuJour() {
         List<Seance> seances = seanceRepository.findByDate(LocalDate.now());
-        updateSeanceStatuses(seances);
+        // Ne plus mettre à jour le statut automatiquement : c'est manuel
+        // updateSeanceStatuses(seances);
         return seances.stream()
                 .map(this::convertToDTO)
                 .toList();
@@ -145,6 +147,7 @@ public class SeanceService {
     private SeanceDTO convertToDTO(Seance seance) {
         SeanceDTO dto = new SeanceDTO();
         dto.setId(seance.getId());
+        dto.setAffectationId(seance.getAffectation().getId());
         dto.setMatiere(seance.getMatiere());
         dto.setProfesseur(seance.getAffectation().getEnseignant().getPrenom() + " "
                 + seance.getAffectation().getEnseignant().getNom());
