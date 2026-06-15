@@ -36,9 +36,6 @@ public class MessageService {
 
     private final MessageRepository messageRepository;
     private final UtilisateurRepository utilisateurRepository;
-    private final AffectationRepository affectationRepository;
-    private final EnseignantRepository enseignantRepository;
-    private final EtudiantRepository etudiantRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final MediasService mediasService;
 
@@ -59,16 +56,16 @@ public class MessageService {
             dto.setContactId(contact.getId());
             dto.setContactNom(contact.getNom());
             dto.setContactPrenom(contact.getPrenom());
-            dto.setLastMessage(message.getContenu() != null && !message.getContenu().isBlank() 
-                ? message.getContenu() 
-                : "📎 Fichier(s)");
+            dto.setLastMessage(message.getContenu() != null && !message.getContenu().isBlank()
+                    ? message.getContenu()
+                    : "📎 Fichier(s)");
             dto.setDateEnvoi(message.getDateEnvoi());
             int unread = messageRepository.countUnreadMessages(userId, contact.getId());
             dto.setUnreadCount(unread);
             byContact.put(contact.getId(), dto);
         }
 
-        mergeParentContacts(userId, byContact);
+
         return byContact.values().stream()
                 .sorted(Comparator.comparing(
                         ConversationDTO::getDateEnvoi,
@@ -90,7 +87,7 @@ public class MessageService {
         System.out.println("=== MessageService.sendMessage ===");
         System.out.println("ExpediteurId: " + expediteurId);
         System.out.println("DestinataireId: " + destinataireId);
-        
+
         Utilisateur expediteur = utilisateurRepository.findById(expediteurId)
                 .orElseThrow(() -> new RuntimeException("Expéditeur introuvable"));
         Utilisateur destinataire = utilisateurRepository.findById(destinataireId)
@@ -130,7 +127,7 @@ public class MessageService {
             saved = messageRepository.save(saved);
             System.out.println("Message with files saved, files count: " + saved.getFichiers().size());
         }
-        
+
         MessageDTO dtoDestinataire = toDto(saved, destinataireId);
         messagingTemplate.convertAndSend(
                 "/topic/messages/" + destinataireId.toString(),
@@ -140,47 +137,13 @@ public class MessageService {
         return toDto(saved, expediteurId);
     }
 
-    private void mergeParentContacts(Long enseignantId, Map<Long, ConversationDTO> byContact) {
-        Enseignant enseignant = enseignantRepository.findById(enseignantId)
-                .orElse(null);
-        if (enseignant == null) {
-            return;
-        }
 
-        List<Affectation> affectations = affectationRepository.findByEnseignant(enseignant);
-
-        for (Affectation affectation : affectations) {
-            if (affectation.getClasse() == null) {
-                continue;
-            }
-            List<Etudiant> etudiants = etudiantRepository
-                    .findByInscriptionClasseId(affectation.getClasse().getId());
-
-            for (Etudiant etudiant : etudiants) {
-                Parent parent = etudiant.getParent();
-                if (parent == null || byContact.containsKey(parent.getId())) {
-                    continue;
-                }
-
-                ConversationDTO dto = new ConversationDTO();
-                dto.setContactId(parent.getId());
-                dto.setContactNom(parent.getNom());
-                dto.setContactPrenom(parent.getPrenom());
-                dto.setLastMessage("Nouvelle conversation");
-                dto.setDateEnvoi(null);
-                dto.setUnreadCount(0);
-                dto.setStudentId(etudiant.getId());
-                dto.setStudentName(etudiant.getPrenom() + " " + etudiant.getNom());
-                byContact.put(parent.getId(), dto);
-            }
-        }
-    }
 
     private MessageDTO toDto(Message message, Long currentUserId) {
         System.out.println("=== MessageService.toDto ===");
         System.out.println("Message ID: " + message.getId());
         System.out.println("Files count: " + (message.getFichiers() != null ? message.getFichiers().size() : 0));
-        
+
         MessageDTO dto = new MessageDTO();
         dto.setId(message.getId());
         dto.setExpediteurId(message.getExpediteur().getId());
@@ -188,7 +151,7 @@ public class MessageService {
         dto.setContenu(message.getContenu());
         dto.setDateEnvoi(message.getDateEnvoi());
         dto.setMine(message.getExpediteur().getId().equals(currentUserId));
-        
+
         if (message.getFichiers() != null) {
             List<String> fileUrls = new ArrayList<>();
             for (Medias media : message.getFichiers()) {
@@ -200,7 +163,7 @@ public class MessageService {
             System.out.println("  Setting " + fileUrls.size() + " file URLs in DTO");
             dto.setFichiers(fileUrls);
         }
-        
+
         return dto;
     }
 }
