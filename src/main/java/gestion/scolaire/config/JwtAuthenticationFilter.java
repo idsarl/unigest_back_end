@@ -72,14 +72,13 @@ protected void doFilterInternal(HttpServletRequest request,
 
             String path = request.getServletPath();
 
-if (path.startsWith("/api/auth")
-        || path.startsWith("/api/admins")
-        || path.contains("swagger")
-        || path.contains("api-docs")) {
-
-    filterChain.doFilter(request, response);
-    return;
-}
+        // Bypass JWT uniquement pour login et Swagger
+        if (path.startsWith("/api/auth")
+                || path.contains("swagger")
+                || path.contains("api-docs")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
     final String authHeader = request.getHeader("Authorization");
 

@@ -55,6 +55,7 @@ public class JwtUtil {
     claims.put("prenom", user.getPrenom());
     claims.put("email", user.getEmail());
     claims.put("telephone", user.getTelephone());
+    claims.put("role", user.getRole() != null ? user.getRole().name() : null);
 
     return createToken(claims, subject);
     }
