@@ -101,4 +101,16 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     List<Object[]> findAverageByAffectationEnseignantIdAndMatiereNomGroupByClasse(
                     @Param("enseignantId") Long enseignantId,
                     @Param("matiereNom") String matiereNom);
+
+    @Query("""
+            SELECT n FROM Note n
+            WHERE n.affectation.enseignant.id = :enseignantId
+            AND n.matiere.nom = :matiereNom
+            AND n.affectation.classe.id = :classeId
+           """)
+    List<Note> findByEnseignantMatiereClasse(
+            @Param("enseignantId") Long enseignantId,
+            @Param("matiereNom") String matiereNom,
+            @Param("classeId") Long classeId
+    );
 }

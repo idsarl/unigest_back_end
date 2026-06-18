@@ -39,6 +39,11 @@ public class SecurityConfig {
         }
 
         @Bean
+        public JwtAuthenticationFilter jwtAuthenticationFilter() {
+                return new JwtAuthenticationFilter(customUserDetailsService, jwtUtil);
+        }
+
+        @Bean
         public AuthenticationManager authenticationManager(
                         HttpSecurity http,
                         PasswordEncoder passwordEncoder) throws Exception {
@@ -50,7 +55,9 @@ public class SecurityConfig {
         }
 
         @Bean
-        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        public SecurityFilterChain securityFilterChain(
+                        HttpSecurity http,
+                        JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
                 return http
                                 .cors(cors -> {
                                 })
@@ -62,24 +69,25 @@ public class SecurityConfig {
                                                                 "/api/seances/**",
                                                                 "/api/appels/**",
                                                                 "/api/affectations/**",
+                                                                "/api/emplois-du-temps/**",
                                                                 "/api/inscriptions/**",
                                                                 "/api/notes/**",
                                                                 "/api/etudiants/**",
                                                                 "/api/annee-scolaire/**",
-                                                                "/api/v3/api-docs/**", // Correspond à
-                                                               "/api/medias/*/fichier",                     // springdoc.api-docs.path
-                                                                "/api/swagger-ui/**", // Correspond au dossier des
-                                                                                      // ressources UI
-                                                                "/api/swagger-ui.html", // Correspond à
-                                                                                        // springdoc.swagger-ui.path
-                                                                "/swagger-ui/**", // Sécurité au cas où le mapping par
-                                                                                  // défaut persiste
+                                                                "/api/v3/api-docs/**",
+                                                                "/api/medias/*/fichier",
+                                                                "/api/swagger-ui/**",
+                                                                "/api/swagger-ui.html",
+                                                                "/swagger-ui/**",
                                                                 "/v3/api-docs/**",
+                                                                "/error",
                                                                 "/ws/**")
                                                 .permitAll()
 
                                                 .anyRequest().authenticated())
-                                .addFilterBefore(new JwtAuthenticationFilter(customUserDetailsService, jwtUtil),
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .addFilterBefore(jwtAuthenticationFilter,
                                                 UsernamePasswordAuthenticationFilter.class)
                                 .build();
         }

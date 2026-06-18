@@ -131,6 +131,12 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
         return repository.findByClasseId(classeId);
     }
 
+    @Override
+    public List<EmploiDuTemps> getByEnseignantAndDate(Long enseignantId, LocalDate date) {
+        gestion.scolaire.dto.JourSemaine jourSemaine = gestion.scolaire.dto.JourSemaine.values()[date.getDayOfWeek().getValue() - 1];
+        return repository.findAllValidesByDateAndJour(enseignantId, date, jourSemaine);
+    }
+
     private void verifierConflit(EmploiDuTemps dto) {
 
         if (dto.getType() != TypeEmploi.COURS) {

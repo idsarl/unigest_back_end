@@ -20,7 +20,7 @@ public class Affectation {
     @ManyToOne
     private Enseignant enseignant;
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "affectation_matiere", joinColumns = @JoinColumn(name = "affectation_id"), inverseJoinColumns = @JoinColumn(name = "matiere_id"))
     private List<Matiere> matieres;
 

@@ -8,16 +8,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
+import gestion.scolaire.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import gestion.scolaire.dto.SeanceDTO;
-import gestion.scolaire.model.Affectation;
-import gestion.scolaire.model.AnneeScolaire;
-import gestion.scolaire.model.Seance;
-import gestion.scolaire.model.StatutPresence;
-import gestion.scolaire.model.StatutSeance;
-import gestion.scolaire.model.Classe;
 import gestion.scolaire.repository.AffectationRepository;
 import gestion.scolaire.repository.AppelRepository;
 import gestion.scolaire.repository.NoteRepository;
@@ -25,6 +21,7 @@ import gestion.scolaire.repository.SeanceRepository;
 import gestion.scolaire.repository.ClasseRepository;
 
 @Service
+@Transactional
 public class SeanceService {
 
     @Autowired
@@ -45,27 +42,44 @@ public class SeanceService {
     @Autowired
     private ClasseRepository classeRepository;
 
+    @Autowired
+    private EmploiDuTempsService emploiDuTempsService;
+
     // 1️⃣ Démarrer une séance
-    public Seance demarrerSeance(Long affectationId, String matiere) {
+    public SeanceDTO demarrerSeance(Long affectationId, String matiere) {
 
         Affectation affectation = affectationRepository.findById(affectationId)
                 .orElseThrow(() -> new RuntimeException("Affectation introuvable"));
-        AnneeScolaire anneeActive = annnAnneeScolaireService.getAnneeActive();
 
-        Seance seance = new Seance();
-        seance.setAffectation(affectation);
-        seance.setAnneeScolaire(anneeActive);
-        seance.setMatiere(matiere);
-        seance.setDate(LocalDate.now());
-        seance.setHeureDebut(LocalTime.now());
+        // Chercher une séance planifiée pour aujourd'hui avec cette affectation et cette matière
+        List<Seance> seances = seanceRepository.findByAffectationIdAndDate(affectationId, LocalDate.now());
+        Seance seance = null;
+        for (Seance s : seances) {
+            if (s.getMatiere().equals(matiere) && s.getStatut() == StatutSeance.PLANIFIEE) {
+                seance = s;
+                break;
+            }
+        }
+
+        if (seance == null) {
+            AnneeScolaire anneeActive = annnAnneeScolaireService.getAnneeActive();
+            seance = new Seance();
+            seance.setAffectation(affectation);
+            seance.setAnneeScolaire(anneeActive);
+            seance.setMatiere(matiere);
+            seance.setDate(LocalDate.now());
+            seance.setHeureDebut(LocalTime.now());
+            seance.setDateCreation(LocalDateTime.now());
+        }
+
         seance.setStatut(StatutSeance.EN_COURS);
-        seance.setDateCreation(LocalDateTime.now());
+        seance.setDateModification(LocalDateTime.now());
 
-        return seanceRepository.save(seance);
+        return convertToDTO(seanceRepository.save(seance));
     }
 
     // 2️⃣ Terminer une séance
-    public Seance terminerSeance(Long seanceId) {
+    public SeanceDTO terminerSeance(Long seanceId) {
         Seance seance = seanceRepository.findById(seanceId)
                 .orElseThrow(() -> new RuntimeException("Séance introuvable"));
 
@@ -73,7 +87,7 @@ public class SeanceService {
         seance.setStatut(StatutSeance.TERMINEE);
         seance.setDateModification(LocalDateTime.now());
 
-        return seanceRepository.save(seance);
+        return convertToDTO(seanceRepository.save(seance));
     }
 
     // 3️⃣ Récupérer séances par date
@@ -184,6 +198,7 @@ public class SeanceService {
         List<Seance> seances = seanceRepository.findByAffectationEnseignantIdAndDate(enseignantId, LocalDate.now());
         updateSeanceStatuses(seances);
         return seances.stream()
+                .sorted(Comparator.comparing(Seance::getHeureDebut, Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(this::convertToDTO)
                 .toList();
     }
@@ -206,21 +221,40 @@ public class SeanceService {
         LocalDate aujourd_hui = LocalDate.now();
         LocalTime maintenant = LocalTime.now();
 
-        List<Seance> seances = seanceRepository.findByAffectationEnseignantIdAndDate(enseignantId, aujourd_hui);
+        System.out.println("=== DEBUG getMoyenneMatiereEnCoursParEnseignant ===");
+        System.out.println("enseignantId: " + enseignantId);
+        System.out.println("aujourd_hui: " + aujourd_hui);
+        System.out.println("maintenant: " + maintenant);
 
-        var seanceEnCours = seances.stream()
-                .filter(s -> s.getHeureDebut() != null && s.getHeureFin() != null
-                        && !maintenant.isBefore(s.getHeureDebut())
-                        && !maintenant.isAfter(s.getHeureFin()))
+        List<EmploiDuTemps> emplois = emploiDuTempsService.getByEnseignantAndDate(enseignantId, aujourd_hui);
+        System.out.println("emplois trouvés: " + emplois.size());
+        emplois.forEach(e -> System.out.println(" - Emploi: " + e.getId() + ", matiere: " + (e.getMatiere() != null ? e.getMatiere().getNom() : "null") + ", classe: " + (e.getClasse() != null ? e.getClasse().getNom() : "null") + ", heureDebut: " + e.getHeureDebut() + ", heureFin: " + e.getHeureFin()));
+
+        // 1. Trouver la séance en cours ou la prochaine
+        var emploiSelectionne = emplois.stream()
+                .filter(e -> e.getHeureDebut() != null && e.getHeureFin() != null
+                        && !maintenant.isBefore(e.getHeureDebut())
+                        && !maintenant.isAfter(e.getHeureFin()))
                 .findFirst();
+        System.out.println("emploiSelectionne (en cours): " + (emploiSelectionne.isPresent() ? "trouvé" : "non trouvé"));
 
-        if (seanceEnCours.isEmpty()) {
-            seanceEnCours = seances.stream()
-                    .filter(s -> s.getHeureDebut() != null && s.getHeureDebut().isAfter(maintenant))
-                    .min(Comparator.comparing(Seance::getHeureDebut));
+        if (emploiSelectionne.isEmpty()) {
+            emploiSelectionne = emplois.stream()
+                    .filter(e -> e.getHeureDebut() != null && e.getHeureDebut().isAfter(maintenant))
+                    .findFirst();
+            System.out.println("emploiSelectionne (prochaine): " + (emploiSelectionne.isPresent() ? "trouvé" : "non trouvé"));
         }
 
-        if (seanceEnCours.isEmpty()) {
+        if (emploiSelectionne.isEmpty()) {
+            // Si pas de séance en cours ou à venir, prendre la dernière séance terminée du jour
+            emploiSelectionne = emplois.stream()
+                    .filter(e -> e.getHeureDebut() != null && e.getHeureFin() != null && e.getHeureFin().isBefore(maintenant))
+                    .max(java.util.Comparator.comparing(EmploiDuTemps::getHeureFin));
+            System.out.println("emploiSelectionne (dernière terminée): " + (emploiSelectionne.isPresent() ? "trouvé" : "non trouvé"));
+        }
+
+        if (emploiSelectionne.isEmpty()) {
+            System.out.println("Aucune séance trouvée !");
             return Map.of(
                     "enseignantId", enseignantId,
                     "date", aujourd_hui.toString(),
@@ -228,64 +262,80 @@ public class SeanceService {
             );
         }
 
-        Seance seance = seanceEnCours.get();
-        String matiere = seance.getMatiere();
+        EmploiDuTemps emploi = emploiSelectionne.get();
+        String matiere = emploi.getMatiere() != null ? emploi.getMatiere().getNom() : null;
+        Classe classe = emploi.getClasse();
+        System.out.println("emploi sélectionné: matiere=" + matiere + ", classe=" + (classe != null ? classe.getNom() : "null"));
 
-        if (matiere == null || matiere.isBlank()) {
+        if (matiere == null || matiere.isBlank() || classe == null) {
+            System.out.println("matiere ou classe null/vide !");
             return Map.of(
                     "enseignantId", enseignantId,
                     "date", aujourd_hui.toString(),
-                    "message", "Impossible de déterminer la matière de la séance en cours ou à venir"
+                    "message", "Impossible de déterminer la matière ou la classe de la séance"
             );
         }
 
-        Double moyenneGenerale = noteRepository.findAverageByAffectationEnseignantIdAndMatiereNom(enseignantId, matiere);
-        List<Map<String, Object>> moyenneParClasse = noteRepository
-                .findAverageByAffectationEnseignantIdAndMatiereNomGroupByClasse(enseignantId, matiere)
-                .stream()
-                .map(result -> {
-                    Long classeId = (Long) result[0];
-                    Double moyenne = (Double) result[1];
-                    Classe classe = classeRepository.findById(classeId).orElse(null);
-                    String classeNom = (classe != null) ? classe.getNom() : "Classe Inconnue";
-                    int nombreEtudiants = (classe != null && classe.getInscriptions() != null) ? classe.getInscriptions().size() : 0;
-                    
-                    return Map.<String, Object>of(
-                            "classeId", classeId,
-                            "classeNom", classeNom,
-                            "moyenne", moyenne != null ? moyenne : 0.0,
-                            "nombreEtudiants", nombreEtudiants
-                    );
-                })
-                .toList();
+        // 2. Récupérer toutes les notes pour cette enseignant, cette matière et cette classe
+        List<Note> notes = noteRepository.findByEnseignantMatiereClasse(enseignantId, matiere, classe.getId());
+        System.out.println("notes trouvées: " + notes.size());
 
-        return Map.of(
+        if (notes.isEmpty()) {
+            System.out.println("Aucune note trouvée !");
+            return Map.of(
+                    "enseignantId", enseignantId,
+                    "date", aujourd_hui.toString(),
+                    "matiere", matiere,
+                    "classeId", classe.getId(),
+                    "classeNom", classe.getNom(),
+                    "message", "Aucune note disponible pour cette classe et cette matière"
+            );
+        }
+
+        // 3. Calculer les 4 stats
+        double meilleureNote = notes.stream().mapToDouble(Note::getValeur).max().orElse(0);
+        double plusFaibleNote = notes.stream().mapToDouble(Note::getValeur).min().orElse(0);
+        long notesSuperieuresOuEgalesA10 = notes.stream().filter(n -> n.getValeur() >= 10).count();
+        double tauxReussite = (notesSuperieuresOuEgalesA10 * 100.0) / notes.size();
+        int nombreEtudiants = (classe.getInscriptions() != null) ? classe.getInscriptions().size() : 0;
+
+        Map<String, Object> result = Map.of(
                 "enseignantId", enseignantId,
                 "date", aujourd_hui.toString(),
                 "matiere", matiere,
-                "moyenneGenerale", moyenneGenerale != null ? moyenneGenerale : 0.0,
-                "moyenneParClasse", moyenneParClasse
+                "classeId", classe.getId(),
+                "classeNom", classe.getNom(),
+                "nombreEtudiants", nombreEtudiants,
+                "tauxReussite", String.format("%.0f%%", tauxReussite),
+                "meilleureNote", String.format("%.1f", meilleureNote),
+                "plusFaibleNote", String.format("%.1f", plusFaibleNote),
+                "notesSuperieuresOuEgalesA10", notesSuperieuresOuEgalesA10
         );
+
+        System.out.println("=== Résultat renvoyé par le backend ===");
+        System.out.println(result);
+
+        return result;
     }
 
     public Map<String, Object> getTempsAvantProchaineSeanceParEnseignant(Long enseignantId) {
         LocalDate aujourd_hui = LocalDate.now();
         LocalTime maintenant = LocalTime.now();
 
-        return seanceRepository.findByAffectationEnseignantIdAndDate(enseignantId, aujourd_hui).stream()
+        return emploiDuTempsService.getByEnseignantAndDate(enseignantId, aujourd_hui).stream()
                 .filter(s -> s.getHeureDebut() != null &&
                         (s.getHeureDebut().isAfter(maintenant) || s.getHeureDebut().equals(maintenant)))
-                .min(Comparator.comparing(Seance::getHeureDebut))
+                .min(Comparator.comparing(EmploiDuTemps::getHeureDebut))
                 .map(prochaine -> {
                     Duration duree = Duration.between(maintenant, prochaine.getHeureDebut());
                     return Map.<String, Object>of(
                             "seanceId", prochaine.getId(),
-                            "matiere", prochaine.getMatiere(),
+                            "matiere", prochaine.getMatiere() != null ? prochaine.getMatiere().getNom() : null,
                             "heureDebut", prochaine.getHeureDebut().toString(),
                             "heureFin", prochaine.getHeureFin() != null ? prochaine.getHeureFin().toString() : null,
                             "minutesRestantes", duree.toMinutes(),
                             "heuresRestantes", duree.toHours(),
-                            "statut", prochaine.getStatut() != null ? prochaine.getStatut().name() : null
+                            "statut", "PLANIFIEE"
                     );
                 })
                 .orElse(Map.of("message", "Aucune séance restante aujourd'hui pour cet enseignant"));

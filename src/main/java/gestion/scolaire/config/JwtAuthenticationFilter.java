@@ -10,7 +10,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import gestion.scolaire.util.CustomUserDetailService;
@@ -18,7 +17,6 @@ import gestion.scolaire.util.JwtUtil;
 
 import java.io.IOException;
 
-@Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -64,61 +62,50 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     //     filterChain.doFilter(request, response);
     // }
 
-    @Override   
-protected void doFilterInternal(HttpServletRequest request,
-                                HttpServletResponse response,
-                                FilterChain filterChain)
-        throws ServletException, IOException {
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
 
-            String path = request.getServletPath();
+        final String authHeader = request.getHeader("Authorization");
 
-if (path.equals("/api/auth/login")
-        || path.startsWith("/api/admins")
-        || path.startsWith("/api/inscriptions")
-        || path.contains("swagger")
-        || path.contains("api-docs")) {
+        String username = null;
+        String jwt = null;
 
-    filterChain.doFilter(request, response);
-    return;
-}
-
-    final String authHeader = request.getHeader("Authorization");
-
-    String username = null;
-    String jwt = null;
-
-    if (authHeader != null && authHeader.startsWith("Bearer ")) {
-        jwt = authHeader.substring(7);
-        try {
-            username = jwtUtil.extractUsername(jwt);
-            System.out.println("username : " + username);
-        } catch (Exception e) {
-            // Si le token est invalide, on log l'erreur mais on ne bloque pas encore
-            System.out.println("Erreur de validation JWT : " + e.getMessage());
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwt = authHeader.substring(7);
+            try {
+                username = jwtUtil.extractUsername(jwt);
+            } catch (Exception e) {
+                System.out.println("Erreur de validation JWT : " + e.getMessage());
+            }
         }
-    }
 
-    if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-        UserDetails userDetails = customUserDetailService.loadUserByUsername(username);
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            try {
+                UserDetails userDetails = customUserDetailService.loadUserByUsername(username);
 
-        if (jwtUtil.validateToken(jwt, userDetails)) {
-            UsernamePasswordAuthenticationToken authenticationToken =
-                    new UsernamePasswordAuthenticationToken(
-                            userDetails,
-                            null,
-                            userDetails.getAuthorities()
+                if (jwtUtil.validateToken(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authenticationToken =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities()
+                            );
+
+                    authenticationToken.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
                     );
 
-            authenticationToken.setDetails(
-                    new WebAuthenticationDetailsSource().buildDetails(request)
-            );
-
-            SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                }
+            } catch (Exception e) {
+                System.out.println("Authentification JWT ignorée : " + e.getMessage());
+            }
         }
-    }
 
-    // Très important : cette ligne doit TOUJOURS être exécutée
-    filterChain.doFilter(request, response);
-}
+        filterChain.doFilter(request, response);
+    }
 }
 

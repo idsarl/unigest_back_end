@@ -24,5 +24,7 @@ public interface EmploiDuTempsService {
     byte[] exportPdf(Long classeId);
 
     byte[] exportExcel(Long classeId);
+
+    List<EmploiDuTemps> getByEnseignantAndDate(Long enseignantId, LocalDate date);
     
 }

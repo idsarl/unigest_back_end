@@ -23,9 +23,12 @@ public class SeanceController {
         @Autowired
         private SeanceService seanceService;
 
+        @Autowired
+        private gestion.scolaire.service.SeanceScheduler seanceScheduler;
+
         @Operation(summary = "Démarrer une séance", description = "Crée une nouvelle séance pour une affectation")
         @PostMapping("/demarrer")
-        public ResponseEntity<Seance> demarrerSeance(
+        public ResponseEntity<gestion.scolaire.dto.SeanceDTO> demarrerSeance(
                         @Parameter(description = "ID de l'affectation") @RequestParam Long affectationId,
                         @RequestParam String matiere) {
 
@@ -35,7 +38,7 @@ public class SeanceController {
 
         @Operation(summary = "Terminer une séance")
         @PutMapping("/{seanceId}/terminer")
-        public ResponseEntity<Seance> terminerSeance(
+        public ResponseEntity<gestion.scolaire.dto.SeanceDTO> terminerSeance(
                         @PathVariable Long seanceId) {
 
                 return ResponseEntity.ok(
@@ -128,7 +131,12 @@ public class SeanceController {
                                 seanceService.getSeances());
         }
 
-        
+        @Operation(summary = "Générer manuellement les séances du jour")
+        @PostMapping("/generer-jour")
+        public ResponseEntity<String> genererSeancesDuJour() {
+                seanceScheduler.genererSeancesDuJour();
+                return ResponseEntity.ok("Génération des séances terminée !");
+        }
 
         @Operation(summary = "Récupérer le temps restant avant la prochaine séance du jour pour un enseignant")
         @GetMapping("/enseignant/{enseignantId}/prochaine")

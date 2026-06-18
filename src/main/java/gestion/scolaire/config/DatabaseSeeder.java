@@ -30,11 +30,17 @@ public class DatabaseSeeder implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        if (utilisateurRepository.count() > 0) {
-            log.info("Base déjà initialisée ({} utilisateur(s)), skip data_insert.sql", utilisateurRepository.count());
-            return;
+        // Exécuter le script de mise à jour de l'année scolaire
+        Resource updateScript = resourceLoader.getResource("classpath:update_annee_scolaire.sql");
+        if (updateScript.exists()) {
+            ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
+            populator.addScript(updateScript);
+            populator.setSeparator(";");
+            populator.execute(dataSource);
+            log.info("Année scolaire mise à jour");
         }
-
+        
+        // Exécuter data_insert.sql (même si utilisateurs existent)
         Resource script = resourceLoader.getResource("classpath:data_insert.sql");
         if (!script.exists()) {
             log.info("Fichier data_insert.sql non trouvé, skip l'initialisation des données de test");
@@ -44,6 +50,9 @@ public class DatabaseSeeder implements ApplicationRunner {
         ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
         populator.addScript(script);
         populator.setSeparator(";");
+        // Ignorer les erreurs (comme les doublons)
+        populator.setIgnoreFailedDrops(true);
+        populator.setContinueOnError(true);
         populator.execute(dataSource);
 
         log.info("Données de test chargées depuis data_insert.sql");
