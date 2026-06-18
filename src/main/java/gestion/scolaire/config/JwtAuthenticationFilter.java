@@ -72,7 +72,6 @@ protected void doFilterInternal(HttpServletRequest request,
 
             String path = request.getServletPath();
 
-// Seul /login est public ; /me et les autres routes /api/auth nécessitent le JWT
 if (path.equals("/api/auth/login")
         || path.startsWith("/api/admins")
         || path.startsWith("/api/inscriptions")

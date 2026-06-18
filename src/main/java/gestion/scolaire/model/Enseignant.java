@@ -8,8 +8,10 @@ import jakarta.persistence.*;
 
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(callSuper = false)
 @Entity
 public class Enseignant extends Utilisateur {
 

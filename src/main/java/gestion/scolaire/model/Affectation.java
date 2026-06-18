@@ -37,4 +37,8 @@ public class Affectation {
     @OneToMany(mappedBy = "affectation")
     @JsonIgnore
     private List<Note> notes;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "annee_scolaire_id")
+    private AnneeScolaire anneeScolaire;
 }
