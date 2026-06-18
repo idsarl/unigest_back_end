@@ -13,7 +13,9 @@ import com.lowagie.text.pdf.*;
 
 import gestion.scolaire.model.Bulletin;
 import gestion.scolaire.model.LigneBulletin;
+import gestion.scolaire.model.ParametreEcole;
 import gestion.scolaire.repository.LigneBulletinRepository;
+import gestion.scolaire.service.BulletinService.StatistiquesClasse;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -23,66 +25,63 @@ public class BulletinPdfService {
 
     private final BulletinService bulletinService;
     private final LigneBulletinRepository ligneBulletinRepository;
+    private final ParametreEcoleService parametreEcoleService;
 
     // ── Couleurs ──────────────────────────────────────────────────────────────
-    private static final Color BLEU_FONCE   = new Color(23,  54,  93);
-    private static final Color BLEU_CLAIR   = new Color(189, 215, 238);
-    private static final Color VERT_PASSE   = new Color(198, 224, 180);
-    private static final Color ROUGE_PASSE  = new Color(255, 199, 206);
-    private static final Color GRIS_CLAIR   = new Color(242, 242, 242);
+    private static final Color GRIS_ENTETE  = new Color(220, 220, 220);
+    private static final Color GRIS_CLAIR   = new Color(245, 245, 245);
     private static final Color BLANC        = Color.WHITE;
     private static final Color NOIR         = Color.BLACK;
 
     // ── Fonts ─────────────────────────────────────────────────────────────────
-    private static final Font F_TITRE    = FontFactory.getFont(FontFactory.HELVETICA_BOLD,  18, BLANC);
-    private static final Font F_SOUS_TITRE = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, BLEU_FONCE);
-    private static final Font F_NORMAL   = FontFactory.getFont(FontFactory.HELVETICA,        9,  NOIR);
-    private static final Font F_GRAS     = FontFactory.getFont(FontFactory.HELVETICA_BOLD,   9,  NOIR);
-    private static final Font F_BLANC    = FontFactory.getFont(FontFactory.HELVETICA_BOLD,   9,  BLANC);
-    private static final Font F_PETIT    = FontFactory.getFont(FontFactory.HELVETICA,         8,  Color.DARK_GRAY);
-    private static final Font F_MOYEN_GRAS  = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13, BLEU_FONCE);
-    private static final Font F_GRAND_GRAS  = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, BLEU_FONCE);
+    private static final Font F_ECOLE_NOM   = FontFactory.getFont(FontFactory.HELVETICA_BOLD,  12, NOIR);
+    private static final Font F_ECOLE_INFO  = FontFactory.getFont(FontFactory.HELVETICA,        9, NOIR);
+    private static final Font F_TITRE_BULL  = FontFactory.getFont(FontFactory.HELVETICA_BOLD,  11, NOIR);
+    private static final Font F_ENTETE_TAB  = FontFactory.getFont(FontFactory.HELVETICA_BOLD,   8, NOIR);
+    private static final Font F_NORMAL      = FontFactory.getFont(FontFactory.HELVETICA,         8, NOIR);
+    private static final Font F_GRAS        = FontFactory.getFont(FontFactory.HELVETICA_BOLD,   8, NOIR);
+    private static final Font F_LABEL       = FontFactory.getFont(FontFactory.HELVETICA_BOLD,  10, NOIR);
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Génère le PDF d'un bulletin et retourne les bytes.
-     */
     public byte[] genererPdf(Long bulletinId) {
-        Bulletin bulletin = bulletinService.getBulletin(bulletinId);
+        Bulletin bulletin  = bulletinService.getBulletin(bulletinId);
         List<LigneBulletin> lignes = ligneBulletinRepository.findByBulletin(bulletin);
+        ParametreEcole ecole = parametreEcoleService.getParametres();
+
+        Long classeId = bulletin.getClasse().getId();
+        Long anneeId  = bulletin.getAnneeScolaire().getId();
+        StatistiquesClasse stats = bulletinService.getStatistiquesClasse(
+                classeId, anneeId, bulletin.getPeriode(), bulletin.getTypePeriode());
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        Document doc = new Document(PageSize.A4, 36, 36, 36, 36);
+        Document doc = new Document(PageSize.A4, 40, 40, 40, 40);
 
         try {
-            PdfWriter writer = PdfWriter.getInstance(doc, out);
+            PdfWriter.getInstance(doc, out);
             doc.open();
 
-            // ── 1. Bandeau titre ──────────────────────────────────────────────
-            ajouterBandeauTitre(doc, bulletin);
+            // ── 1. En-tête école ──────────────────────────────────────────────
+            ajouterEnTeteEcole(doc, ecole);
 
-            doc.add(new Paragraph(" "));
+            // ── 2. Titre bulletin ─────────────────────────────────────────────
+            ajouterTitreBulletin(doc, bulletin);
 
-            // ── 2. Infos étudiant + résumé côte à côte ────────────────────────
+            // ── 3. Infos étudiant ─────────────────────────────────────────────
             ajouterInfosEtudiant(doc, bulletin);
 
             doc.add(new Paragraph(" "));
 
-            // ── 3. Tableau des notes ──────────────────────────────────────────
-            doc.add(creerTitreSection("Détail des notes par matière"));
-            doc.add(new Paragraph(" "));
-            doc.add(creerTableauNotes(lignes));
+            // ── 4. Tableau des notes ──────────────────────────────────────────
+            doc.add(creerTableauNotes(lignes, stats, bulletin));
 
+            // ── 5. Appréciation du Proviseur ──────────────────────────────────
             doc.add(new Paragraph(" "));
+            ajouterAppreciationProviseur(doc, bulletin);
 
-            // ── 4. Résumé général ─────────────────────────────────────────────
-            ajouterResumeGeneral(doc, bulletin, lignes.size());
-
-            // ── 5. Signatures ─────────────────────────────────────────────────
+            // ── 6. Signature ──────────────────────────────────────────────────
             doc.add(new Paragraph(" "));
-            doc.add(new Paragraph(" "));
-            ajouterSignatures(doc);
+            ajouterSignature(doc);
 
         } catch (Exception e) {
             throw new RuntimeException("Erreur génération PDF : " + e.getMessage(), e);
@@ -97,216 +96,185 @@ public class BulletinPdfService {
     // Sections
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void ajouterBandeauTitre(Document doc, Bulletin b) throws DocumentException {
-        PdfPTable bandeau = new PdfPTable(1);
-        bandeau.setWidthPercentage(100);
+    private void ajouterEnTeteEcole(Document doc, ParametreEcole ecole) throws DocumentException {
+        if (ecole.getNomEcole() != null && !ecole.getNomEcole().isBlank()) {
+            Paragraph p = new Paragraph(ecole.getNomEcole().toUpperCase(), F_ECOLE_NOM);
+            p.setAlignment(Element.ALIGN_CENTER);
+            doc.add(p);
+        }
+        if (ecole.getAdresseEcole() != null && !ecole.getAdresseEcole().isBlank()) {
+            Paragraph p = new Paragraph(ecole.getAdresseEcole(), F_ECOLE_INFO);
+            p.setAlignment(Element.ALIGN_CENTER);
+            doc.add(p);
+        }
+        if (ecole.getTelephoneEcole() != null && !ecole.getTelephoneEcole().isBlank()) {
+            Paragraph p = new Paragraph("Tél : " + ecole.getTelephoneEcole(), F_ECOLE_INFO);
+            p.setAlignment(Element.ALIGN_CENTER);
+            doc.add(p);
+        }
+        doc.add(new Paragraph(" "));
+    }
 
-        PdfPCell cell = new PdfPCell();
-        cell.setBackgroundColor(BLEU_FONCE);
-        cell.setBorder(Rectangle.NO_BORDER);
-        cell.setPadding(14);
-
+    private void ajouterTitreBulletin(Document doc, Bulletin b) throws DocumentException {
         String typePer = b.getTypePeriode() != null ? b.getTypePeriode().name() : "";
-        String titrePdf = "BULLETIN DE NOTES — " + typePer + " " + b.getPeriode();
-
-        Paragraph titre = new Paragraph(titrePdf, F_TITRE);
-        titre.setAlignment(Element.ALIGN_CENTER);
-        cell.addElement(titre);
-
-        String annee = b.getAnneeScolaire() != null ? b.getAnneeScolaire().getLibelle() : "";
-        Paragraph sousTitre = new Paragraph("Année scolaire " + annee,
-                FontFactory.getFont(FontFactory.HELVETICA, 10, BLEU_CLAIR));
-        sousTitre.setAlignment(Element.ALIGN_CENTER);
-        cell.addElement(sousTitre);
-
-        bandeau.addCell(cell);
-        doc.add(bandeau);
+        String titre = "BULLETIN DE NOTES DE LA " + b.getPeriode() + "è  PERIODE";
+        Paragraph p = new Paragraph(titre, F_TITRE_BULL);
+        p.setAlignment(Element.ALIGN_CENTER);
+        p.setSpacingAfter(6);
+        doc.add(p);
     }
 
     private void ajouterInfosEtudiant(Document doc, Bulletin b) throws DocumentException {
-        PdfPTable table = new PdfPTable(new float[]{1, 1});
-        table.setWidthPercentage(100);
-        table.setSpacingBefore(4);
+        String annee = b.getAnneeScolaire() != null ? b.getAnneeScolaire().getLibelle() : "—";
+        String classe = b.getClasse() != null ? b.getClasse().getNom() : "—";
 
-        // ── Colonne gauche : infos étudiant ───────────────────────────────────
-        PdfPCell left = new PdfPCell();
-        left.setBorderColor(BLEU_CLAIR);
-        left.setPadding(10);
+        // Ligne : Classe: XXX    Année Scolaire: XXXX-XXXX
+        Paragraph ligneClasse = new Paragraph();
+        ligneClasse.add(new Chunk("Classe:  ", F_GRAS));
+        ligneClasse.add(new Chunk(classe + "          ", F_NORMAL));
+        ligneClasse.add(new Chunk("Année Scolaire:  ", F_GRAS));
+        ligneClasse.add(new Chunk(annee, F_NORMAL));
+        doc.add(ligneClasse);
 
-        left.addElement(new Paragraph("INFORMATIONS ÉTUDIANT", F_SOUS_TITRE));
-        left.addElement(new Paragraph(" "));
-
+        // Ligne : PRENOM(S) : Prénom Nom
         String nomPrenom = (b.getEtudiant().getPrenom() + " " + b.getEtudiant().getNom()).toUpperCase();
-        left.addElement(ligneInfo("Élève       :", nomPrenom));
-        left.addElement(ligneInfo("Matricule   :", b.getEtudiant().getMatricule() != null
-                ? b.getEtudiant().getMatricule() : "—"));
-        left.addElement(ligneInfo("Classe      :", b.getClasse().getNom()));
+        Paragraph ligneNom = new Paragraph();
+        ligneNom.add(new Chunk("PRENOM(S)  ", F_GRAS));
+        ligneNom.add(new Chunk(nomPrenom, F_NORMAL));
+        doc.add(ligneNom);
 
-        if (b.getEtudiant().getDateNaissance() != null) {
-            String ddn = b.getEtudiant().getDateNaissance()
-                    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-            left.addElement(ligneInfo("Né(e) le    :", ddn));
-        }
-
-        if (b.getDateGeneration() != null) {
-            String date = b.getDateGeneration()
-                    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-            left.addElement(ligneInfo("Edité le    :", date));
-        }
-
-        // ── Colonne droite : résultat ─────────────────────────────────────────
-        PdfPCell right = new PdfPCell();
-        right.setBorderColor(BLEU_CLAIR);
-        right.setPadding(10);
-
-        right.addElement(new Paragraph("RÉSULTAT", F_SOUS_TITRE));
-        right.addElement(new Paragraph(" "));
-
-        // Moyenne dans une grande case colorée
-        Color couleurMoy = couleurMoyenne(b.getMoyenneGenerale());
-        PdfPTable moyTable = new PdfPTable(1);
-        moyTable.setWidthPercentage(80);
-        PdfPCell moyCell = new PdfPCell();
-        moyCell.setBackgroundColor(couleurMoy);
-        moyCell.setPadding(8);
-        moyCell.setHorizontalAlignment(Element.ALIGN_CENTER);
-        moyCell.setBorder(Rectangle.NO_BORDER);
-
-        Paragraph moyPar = new Paragraph(
-                String.format("%.2f / 20", b.getMoyenneGenerale()),
-                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18, BLEU_FONCE));
-        moyPar.setAlignment(Element.ALIGN_CENTER);
-        moyCell.addElement(moyPar);
-
-        Paragraph apprPar = new Paragraph(
-                b.getAppreciation() != null ? b.getAppreciation() : "",
-                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, BLEU_FONCE));
-        apprPar.setAlignment(Element.ALIGN_CENTER);
-        moyCell.addElement(apprPar);
-
-        moyTable.addCell(moyCell);
-        right.addElement(moyTable);
-
-        right.addElement(new Paragraph(" "));
-        if (b.getRang() != null) {
-            right.addElement(ligneInfo("Rang        :", b.getRang() + "e sur la classe"));
-        }
-
-        table.addCell(left);
-        table.addCell(right);
-        doc.add(table);
+        // Ligne : N° Mle : matricule
+        String mat = b.getEtudiant().getMatricule() != null ? b.getEtudiant().getMatricule() : "—";
+        Paragraph ligneMat = new Paragraph();
+        ligneMat.add(new Chunk("N° Mle:  ", F_GRAS));
+        ligneMat.add(new Chunk(mat, F_NORMAL));
+        doc.add(ligneMat);
     }
 
-    private PdfPTable creerTableauNotes(List<LigneBulletin> lignes) throws DocumentException {
-        PdfPTable table = new PdfPTable(new float[]{3.5f, 1f, 1.5f, 3f});
+    /**
+     * Tableau principal — colonnes :
+     * Matières | N. Classe | N. Comp | Moyenne | Coeff | Moy. Coeff | Appréciation
+     *
+     * Lignes de bas :
+     * Total Coeff, Total, Moyenne du 1er, Moyenne de l'élève, Rang
+     */
+    private PdfPTable creerTableauNotes(List<LigneBulletin> lignes, StatistiquesClasse stats, Bulletin b)
+            throws DocumentException {
+
+        // Largeurs relatives des 7 colonnes
+        float[] widths = {3.5f, 1.4f, 1.4f, 1.4f, 1f, 1.6f, 2.5f};
+        PdfPTable table = new PdfPTable(widths);
         table.setWidthPercentage(100);
 
-        // En-tête
-        ajouterEnteteTableau(table, "MATIÈRE",        Element.ALIGN_LEFT);
-        ajouterEnteteTableau(table, "COEFF.",         Element.ALIGN_CENTER);
-        ajouterEnteteTableau(table, "MOYENNE /20",    Element.ALIGN_CENTER);
-        ajouterEnteteTableau(table, "APPRÉCIATION",   Element.ALIGN_CENTER);
+        // ── En-tête du tableau ────────────────────────────────────────────────
+        ajouterEntete(table, "Matières",      Element.ALIGN_LEFT);
+        ajouterEntete(table, "N. Classe",     Element.ALIGN_CENTER);
+        ajouterEntete(table, "N. Comp",       Element.ALIGN_CENTER);
+        ajouterEntete(table, "Moyenne",       Element.ALIGN_CENTER);
+        ajouterEntete(table, "Coeff",         Element.ALIGN_CENTER);
+        ajouterEntete(table, "Moy. Coeff",    Element.ALIGN_CENTER);
+        ajouterEntete(table, "Appréciation",  Element.ALIGN_CENTER);
+
+        // ── Lignes par matière ────────────────────────────────────────────────
+        double totalCoeff    = 0;
+        double totalMoyCoeff = 0;
 
         if (lignes == null || lignes.isEmpty()) {
             PdfPCell vide = new PdfPCell(new Phrase("Aucune note disponible", F_NORMAL));
-            vide.setColspan(4);
+            vide.setColspan(7);
             vide.setHorizontalAlignment(Element.ALIGN_CENTER);
-            vide.setPadding(8);
+            vide.setPadding(6);
             table.addCell(vide);
-            return table;
+        } else {
+            boolean pair = false;
+            for (LigneBulletin l : lignes) {
+                Color bg = pair ? GRIS_CLAIR : BLANC;
+                pair = !pair;
+
+                double moyCoeff = l.getMoyenneMatiere() * l.getCoefficient();
+                totalCoeff    += l.getCoefficient();
+                totalMoyCoeff += moyCoeff;
+
+                table.addCell(cellule(nvl(l.getMatiere() != null ? l.getMatiere().getNom() : null),
+                        F_NORMAL, Element.ALIGN_LEFT, bg));
+                table.addCell(cellule(
+                        l.getNoteClasse() > 0 ? fmt2(l.getNoteClasse()) : "—",
+                        F_NORMAL, Element.ALIGN_CENTER, bg));
+                table.addCell(cellule(
+                        l.getNoteComposition() > 0 ? fmt2(l.getNoteComposition()) : "—",
+                        F_NORMAL, Element.ALIGN_CENTER, bg));
+                table.addCell(cellule(fmt2(l.getMoyenneMatiere()),
+                        F_NORMAL, Element.ALIGN_CENTER, bg));
+                table.addCell(cellule(fmtEntier(l.getCoefficient()),
+                        F_NORMAL, Element.ALIGN_CENTER, bg));
+                table.addCell(cellule(fmt2(moyCoeff),
+                        F_NORMAL, Element.ALIGN_CENTER, bg));
+                table.addCell(cellule(nvl(l.getAppreciation()),
+                        F_NORMAL, Element.ALIGN_CENTER, bg));
+            }
         }
 
-        boolean pair = false;
-        for (LigneBulletin ligne : lignes) {
-            Color bg = pair ? GRIS_CLAIR : BLANC;
-            pair = !pair;
+        // ── Ligne Total Coeff ─────────────────────────────────────────────────
+        table.addCell(ligneResume("Total Coeff", 4));
+        table.addCell(celluleResume(fmtEntier(totalCoeff)));
+        table.addCell(celluleVide());
+        table.addCell(celluleVide());
 
-            // Matière
-            PdfPCell cMat = cellule(
-                    ligne.getMatiere() != null ? ligne.getMatiere().getNom() : "—",
-                    F_GRAS, Element.ALIGN_LEFT, bg);
-            table.addCell(cMat);
+        // ── Ligne Total ───────────────────────────────────────────────────────
+        table.addCell(ligneResume("Total", 5));
+        table.addCell(celluleResume(fmt2(totalMoyCoeff)));
+        table.addCell(celluleVide());
 
-            // Coefficient
-            table.addCell(cellule(
-                    String.valueOf((int) ligne.getCoefficient()),
-                    F_NORMAL, Element.ALIGN_CENTER, bg));
+        // ── Moyenne du 1er de la classe ───────────────────────────────────────
+        table.addCell(ligneResume("Moyenne du 1er de la classe", 3));
+        table.addCell(celluleResume(fmt2(stats.moyennePremier())));
+        table.addCell(celluleVide());
+        table.addCell(celluleVide());
+        table.addCell(celluleVide());
 
-            // Moyenne — colorée selon niveau
-            Color couleur = couleurMoyenne(ligne.getMoyenneMatiere());
-            PdfPCell cMoy = cellule(
-                    String.format("%.2f", ligne.getMoyenneMatiere()),
-                    FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, BLEU_FONCE),
-                    Element.ALIGN_CENTER, couleur);
-            table.addCell(cMoy);
+        // ── Moyenne de l'élève ────────────────────────────────────────────────
+        table.addCell(ligneResume("Moyenne de l'élève", 3));
+        table.addCell(celluleResume(fmt2(b.getMoyenneGenerale())));
+        table.addCell(celluleVide());
+        table.addCell(celluleVide());
+        table.addCell(celluleVide());
 
-            // Appréciation
-            table.addCell(cellule(
-                    ligne.getAppreciation() != null ? ligne.getAppreciation() : "—",
-                    F_PETIT, Element.ALIGN_CENTER, bg));
-        }
+        // ── Rang ──────────────────────────────────────────────────────────────
+        table.addCell(ligneResume("Rang", 3));
+        String rangStr = b.getRang() != null
+                ? ordinal(b.getRang()) + " /" + stats.effectif()
+                : "—";
+        table.addCell(celluleResume(rangStr));
+        table.addCell(celluleVide());
+        table.addCell(celluleVide());
+        table.addCell(celluleVide());
 
         return table;
     }
 
-    private void ajouterResumeGeneral(Document doc, Bulletin b, int nbMatieres)
-            throws DocumentException {
-
-        PdfPTable table = new PdfPTable(new float[]{1, 1, 1, 1});
-        table.setWidthPercentage(100);
-
-        ajouterCaseResume(table, "MATIÈRES ÉVALUÉES",
-                String.valueOf(nbMatieres), BLEU_CLAIR);
-
-        ajouterCaseResume(table, "MOYENNE GÉNÉRALE",
-                String.format("%.2f / 20", b.getMoyenneGenerale()),
-                couleurMoyenne(b.getMoyenneGenerale()));
-
-        ajouterCaseResume(table, "RANG",
-                b.getRang() != null ? b.getRang() + "e" : "—", BLEU_CLAIR);
-
-        ajouterCaseResume(table, "APPRÉCIATION",
-                b.getAppreciation() != null ? b.getAppreciation() : "—", BLEU_CLAIR);
-
-        doc.add(table);
-    }
-
-    private void ajouterSignatures(Document doc) throws DocumentException {
-        PdfPTable table = new PdfPTable(new float[]{1, 1});
-        table.setWidthPercentage(100);
-
-        PdfPCell cLeft  = celluleSignature("Signature du Directeur");
-        PdfPCell cRight = celluleSignature("Signature du Parent/Tuteur");
-
-        table.addCell(cLeft);
-        table.addCell(cRight);
-        doc.add(table);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private Paragraph creerTitreSection(String texte) {
-        Paragraph p = new Paragraph(texte.toUpperCase(), F_SOUS_TITRE);
-        p.setSpacingBefore(4);
-        return p;
-    }
-
-    private Paragraph ligneInfo(String label, String valeur) {
+    private void ajouterAppreciationProviseur(Document doc, Bulletin b) throws DocumentException {
         Paragraph p = new Paragraph();
-        p.add(new Chunk(label + " ", F_GRAS));
-        p.add(new Chunk(valeur, F_NORMAL));
-        p.setSpacingBefore(2);
-        return p;
+        p.add(new Chunk("APPRECIATION DU PROVISEUR :    ", F_LABEL));
+        p.add(new Chunk(nvl(b.getAppreciation()).toUpperCase(), F_LABEL));
+        doc.add(p);
     }
 
-    private void ajouterEnteteTableau(PdfPTable table, String texte, int align) {
-        PdfPCell cell = new PdfPCell(new Phrase(texte, F_BLANC));
-        cell.setBackgroundColor(BLEU_FONCE);
+    private void ajouterSignature(Document doc) throws DocumentException {
+        Paragraph p = new Paragraph("Le Proviseur", F_NORMAL);
+        p.setAlignment(Element.ALIGN_RIGHT);
+        p.setSpacingBefore(30);
+        doc.add(p);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helpers de cellules
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void ajouterEntete(PdfPTable table, String texte, int align) {
+        PdfPCell cell = new PdfPCell(new Phrase(texte, F_ENTETE_TAB));
+        cell.setBackgroundColor(GRIS_ENTETE);
         cell.setHorizontalAlignment(align);
-        cell.setPadding(7);
-        cell.setBorderColor(BLANC);
+        cell.setPadding(5);
         table.addCell(cell);
     }
 
@@ -314,44 +282,54 @@ public class BulletinPdfService {
         PdfPCell cell = new PdfPCell(new Phrase(texte, font));
         cell.setHorizontalAlignment(align);
         cell.setBackgroundColor(bg);
-        cell.setPadding(6);
+        cell.setPadding(4);
         return cell;
     }
 
-    private void ajouterCaseResume(PdfPTable table, String label, String valeur, Color bg) {
-        PdfPCell cell = new PdfPCell();
-        cell.setBackgroundColor(bg);
-        cell.setPadding(10);
+    /** Cellule qui s'étend sur colspan colonnes, texte en gras à gauche */
+    private PdfPCell ligneResume(String texte, int colspan) {
+        PdfPCell cell = new PdfPCell(new Phrase(texte, F_GRAS));
+        cell.setColspan(colspan);
+        cell.setHorizontalAlignment(Element.ALIGN_LEFT);
+        cell.setPadding(4);
+        cell.setBackgroundColor(GRIS_CLAIR);
+        return cell;
+    }
+
+    /** Cellule de valeur centrée pour les lignes de résumé */
+    private PdfPCell celluleResume(String texte) {
+        PdfPCell cell = new PdfPCell(new Phrase(texte, F_GRAS));
         cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-
-        Paragraph lbl = new Paragraph(label, F_PETIT);
-        lbl.setAlignment(Element.ALIGN_CENTER);
-        cell.addElement(lbl);
-
-        Paragraph val = new Paragraph(valeur, F_MOYEN_GRAS);
-        val.setAlignment(Element.ALIGN_CENTER);
-        cell.addElement(val);
-
-        table.addCell(cell);
-    }
-
-    private PdfPCell celluleSignature(String label) {
-        PdfPCell cell = new PdfPCell();
-        cell.setPadding(12);
-        cell.setMinimumHeight(60);
-        cell.setBorderColor(BLEU_CLAIR);
-
-        Paragraph p = new Paragraph(label, F_PETIT);
-        p.setAlignment(Element.ALIGN_CENTER);
-        cell.addElement(p);
+        cell.setPadding(4);
+        cell.setBackgroundColor(GRIS_CLAIR);
         return cell;
     }
 
-    /**
-     * Couleur de fond selon la moyenne :
-     *   ≥ 10 → vert pâle  |  < 10 → rouge pâle
-     */
-    private Color couleurMoyenne(double moyenne) {
-        return moyenne >= 10 ? VERT_PASSE : ROUGE_PASSE;
+    /** Cellule vide (pour compléter les lignes de résumé) */
+    private PdfPCell celluleVide() {
+        PdfPCell cell = new PdfPCell(new Phrase("", F_NORMAL));
+        cell.setPadding(4);
+        cell.setBackgroundColor(GRIS_CLAIR);
+        return cell;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Utilitaires
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private String fmt2(double v) {
+        return String.format("%.2f", v);
+    }
+
+    private String fmtEntier(double v) {
+        return String.valueOf((int) v);
+    }
+
+    private String nvl(String s) {
+        return s != null ? s : "—";
+    }
+
+    private String ordinal(int n) {
+        return n + (n == 1 ? "er" : "è");
     }
 }

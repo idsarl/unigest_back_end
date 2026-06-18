@@ -21,9 +21,11 @@ public class LigneBulletin {
     @ManyToOne(optional = false)
     private Matiere matiere;
 
+    private double noteClasse;
+    private double noteComposition;
+    private double quotaClasse;
+    private double quotaComposition;
     private double moyenneMatiere;
-
     private double coefficient;
-
     private String appreciation;
 }

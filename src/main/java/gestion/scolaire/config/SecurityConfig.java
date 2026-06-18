@@ -69,6 +69,9 @@ public class SecurityConfig {
                         // ADMIN only: gestion des comptes admin (n'est plus public)
                         .requestMatchers("/api/admins/**").hasAuthority("ADMIN")
 
+                        // ADMIN only: paramètres école et seuils d'appréciation
+                        .requestMatchers("/api/parametres/**").hasAuthority("ADMIN")
+
                         // ADMIN + COMPTABLE: finance
                         .requestMatchers("/api/paiements/**").hasAnyAuthority("ADMIN", "COMPTABLE")
                         .requestMatchers("/api/depenses/**").hasAnyAuthority("ADMIN", "COMPTABLE")
