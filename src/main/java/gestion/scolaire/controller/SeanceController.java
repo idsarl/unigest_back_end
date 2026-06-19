@@ -71,9 +71,6 @@ public class SeanceController {
         public ResponseEntity<Map<String, Object>> getMoyenneMatiereEnCoursParEnseignant(
                         @PathVariable Long enseignantId) {
                 Map<String, Object> moyenne = seanceService.getMoyenneMatiereEnCoursParEnseignant(enseignantId);
-                if (moyenne.containsKey("message")) {
-                        return ResponseEntity.noContent().build();
-                }
                 return ResponseEntity.ok(moyenne);
         }
 
@@ -143,9 +140,6 @@ public class SeanceController {
         public ResponseEntity<Map<String, Object>> getTempsAvantProchaineSeanceParEnseignant(
                         @PathVariable Long enseignantId) {
                 Map<String, Object> prochaine = seanceService.getTempsAvantProchaineSeanceParEnseignant(enseignantId);
-                if (prochaine.containsKey("message")) {
-                        return ResponseEntity.noContent().build();
-                }
                 return ResponseEntity.ok(prochaine);
         }
 

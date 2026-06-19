@@ -66,25 +66,38 @@ public class AuthController {
 
         @PostMapping("/login")
         public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getLogin(), loginRequest.getPassword())
-        );
+            try {
+                log.info("Tentative de connexion pour: {}", loginRequest.getLogin());
+                
+                Authentication authentication = authenticationManager.authenticate(
+                        new UsernamePasswordAuthenticationToken(loginRequest.getLogin(), loginRequest.getPassword())
+                );
 
-        Utilisateur user = userRepository.findByEmailOrTelephone(
-                loginRequest.getLogin(), loginRequest.getLogin()
-        ).orElseThrow();
+                Utilisateur user = userRepository.findByEmailOrTelephone(
+                        loginRequest.getLogin(), loginRequest.getLogin()
+                ).orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-        Map<String, Object> authData = new HashMap<>();
-        authData.put("token", jwtUtil.generateToken(user));
-        authData.put("type", "Bearer");
-        
-        // Ajout des infos utilisateur
-        authData.put("id", user.getId());
-        authData.put("nom", user.getNom());
-        authData.put("prenom", user.getPrenom());
-        authData.put("role", user.getRole());
+                log.info("Utilisateur trouvé: {}", user.getEmail());
 
-        return ResponseEntity.ok(authData);
+                Map<String, Object> authData = new HashMap<>();
+                authData.put("token", jwtUtil.generateToken(user));
+                authData.put("type", "Bearer");
+                
+                // Ajout des infos utilisateur
+                authData.put("id", user.getId());
+                authData.put("nom", user.getNom());
+                authData.put("prenom", user.getPrenom());
+                authData.put("role", user.getRole());
+
+                log.info("Connexion réussie pour: {}", user.getEmail());
+                return ResponseEntity.ok(authData);
+            } catch (AuthenticationException e) {
+                log.error("Échec de l'authentification: {}", e.getMessage());
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Identifiants incorrects"));
+            } catch (Exception e) {
+                log.error("Erreur lors de la connexion: ", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+            }
 }
 
    @GetMapping("/me")
