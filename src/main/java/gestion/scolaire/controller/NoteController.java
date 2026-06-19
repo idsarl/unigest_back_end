@@ -1,6 +1,8 @@
 package gestion.scolaire.controller;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -121,11 +123,14 @@ public class NoteController {
      * Notes d’un étudiant
      */
     @GetMapping("/etudiant/{etudiantId}")
-    public ResponseEntity<List<Note>> getNotesEtudiant(
+    public ResponseEntity<List<Map<String, Object>>> getNotesEtudiant(
             @PathVariable Long etudiantId) {
 
         return ResponseEntity.ok(
                 noteService.getNotesEtudiant(etudiantId)
+                        .stream()
+                        .map(this::toMobileResponse)
+                        .toList()
         );
     }
 
@@ -133,7 +138,7 @@ public class NoteController {
      * Notes d’un étudiant par période
      */
     @GetMapping("/etudiant/{etudiantId}/periode")
-    public ResponseEntity<List<Note>> getNotesEtudiantPeriode(
+    public ResponseEntity<List<Map<String, Object>>> getNotesEtudiantPeriode(
             @PathVariable Long etudiantId,
             @RequestParam Integer periode,
             @RequestParam TypePeriode typePeriode) {
@@ -144,6 +149,9 @@ public class NoteController {
                         periode,
                         typePeriode
                 )
+                        .stream()
+                        .map(this::toMobileResponse)
+                        .toList()
         );
     }
 
@@ -229,5 +237,27 @@ public class NoteController {
                         typePeriode
                 )
         );
+    }
+
+    private Map<String, Object> toMobileResponse(Note note) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("id", note.getId());
+        response.put("valeur", note.getValeur());
+        response.put("coefficient", note.getCoefficient());
+        response.put("type", note.getType());
+        response.put("periode", note.getPeriode());
+        response.put("typePeriode", note.getTypePeriode());
+        response.put("dateEvaluation", note.getDateEvaluation());
+
+        Map<String, Object> etudiant = new LinkedHashMap<>();
+        etudiant.put("id", note.getEtudiant().getId());
+        response.put("etudiant", etudiant);
+
+        Map<String, Object> matiere = new LinkedHashMap<>();
+        matiere.put("id", note.getMatiere().getId());
+        matiere.put("nom", note.getMatiere().getNom());
+        response.put("matiere", matiere);
+
+        return response;
     }
 }

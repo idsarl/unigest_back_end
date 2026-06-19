@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import gestion.scolaire.model.AnneeScolaire;
 import gestion.scolaire.model.CategorieDepense;
 import gestion.scolaire.model.Depense;
 import gestion.scolaire.repository.CategorieDepenseRepository;
@@ -17,103 +18,86 @@ public class DepenseService {
 
     private final DepenseRepository depenseRepository;
     private final CategorieDepenseRepository categorieRepository;
+    private final AnneeScolaireService anneeScolaireService;
 
-    // =========================
-    // CREATE
-    // =========================
+    // ─────────────────────────────────────────────────────────────────────────
+    // Écriture
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** Crée une dépense et l'associe automatiquement à l'année scolaire active. */
     public Depense createDepense(Depense depense) {
-
         if (depense.getCategorieDepense() != null && depense.getCategorieDepense().getId() != null) {
-
             CategorieDepense categorie = categorieRepository.findById(
-                    depense.getCategorieDepense().getId()
-            ).orElseThrow(() -> new RuntimeException("Catégorie introuvable"));
-
+                    depense.getCategorieDepense().getId())
+                    .orElseThrow(() -> new RuntimeException("Catégorie introuvable"));
             depense.setCategorieDepense(categorie);
         }
 
+        depense.setAnneeScolaire(anneeScolaireService.getAnneeActive());
         depense.setDateCreation(LocalDate.now());
-
         return depenseRepository.save(depense);
     }
 
-
-     // =========================
-// UPDATE
-// =========================
     public Depense updateDepense(Long id, Depense depenseDetails) {
-    // 1. Trouver la dépense existante
-    Depense depense = depenseRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Dépense non trouvée avec l'id : " + id));
+        Depense depense = depenseRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Dépense introuvable avec l'id : " + id));
 
-    // 2. Mettre à jour les champs simples
-    depense.setLibelle(depenseDetails.getLibelle());
-    depense.setMontant(depenseDetails.getMontant());
-    depense.setDateDepense(depenseDetails.getDateDepense());
-    depense.setDescription(depenseDetails.getDescription());
-    depense.setModePaiement(depenseDetails.getModePaiement());
+        depense.setLibelle(depenseDetails.getLibelle());
+        depense.setMontant(depenseDetails.getMontant());
+        depense.setDateDepense(depenseDetails.getDateDepense());
+        depense.setDescription(depenseDetails.getDescription());
+        depense.setModePaiement(depenseDetails.getModePaiement());
 
-    // 3. Gérer la mise à jour de la catégorie (si fournie)
-    if (depenseDetails.getCategorieDepense() != null && depenseDetails.getCategorieDepense().getId() != null) {
-        CategorieDepense categorie = categorieRepository.findById(depenseDetails.getCategorieDepense().getId())
-                .orElseThrow(() -> new RuntimeException("Catégorie introuvable"));
-        depense.setCategorieDepense(categorie);
+        if (depenseDetails.getCategorieDepense() != null && depenseDetails.getCategorieDepense().getId() != null) {
+            CategorieDepense categorie = categorieRepository.findById(
+                    depenseDetails.getCategorieDepense().getId())
+                    .orElseThrow(() -> new RuntimeException("Catégorie introuvable"));
+            depense.setCategorieDepense(categorie);
+        }
+        return depenseRepository.save(depense);
     }
 
-    // 4. Sauvegarder
-    return depenseRepository.save(depense);
-}
+    public void deleteDepense(Long id) {
+        depenseRepository.deleteById(id);
+    }
 
-    // =========================
-    // GET ALL
-    // =========================
+    // ─────────────────────────────────────────────────────────────────────────
+    // Lecture — toutes filtrées par année scolaire active
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** Toutes les dépenses de l'année scolaire active. */
     public List<Depense> getAllDepenses() {
-        return depenseRepository.findAll();
+        return depenseRepository.findByAnneeScolaireId(anneeActiveId());
     }
 
-    // =========================
-    // GET BY ID
-    // =========================
     public Depense getDepenseById(Long id) {
         return depenseRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Dépense introuvable"));
     }
 
-    // =========================
-    // FILTER BY CATEGORIE
-    // =========================
+    /** Dépenses d'une catégorie pour l'année active. */
     public List<Depense> getDepensesByCategorie(Long categorieId) {
-        return depenseRepository.findByCategorieDepenseId(categorieId);
+        return depenseRepository.findByCategorieDepenseIdAndAnneeScolaireId(categorieId, anneeActiveId());
     }
 
-    // =========================
-    // FILTER BY DATE
-    // =========================
+    /** Dépenses dans une plage de dates, pour l'année active. */
     public List<Depense> getDepensesByDateRange(LocalDate dateDebut, LocalDate dateFin) {
-        return depenseRepository.findByDateDepenseBetween(dateDebut, dateFin);
+        return depenseRepository.findByDateDepenseBetweenAndAnneeScolaireId(dateDebut, dateFin, anneeActiveId());
     }
 
-    // =========================
-    // DELETE
-    // =========================
-    public void deleteDepense(Long id) {
-        depenseRepository.deleteById(id);
-    }
-
-    // =========================
-    // TOTAL
-    // =========================
+    /** Total des dépenses de l'année active. */
     public Double getTotalDepenses() {
-        Double total = depenseRepository.sumMontant();
-        return total != null ? total : 0.0;
+        return depenseRepository.sumMontantByAnnee(anneeActiveId());
     }
 
+    /** Total des dépenses d'une catégorie pour l'année active. */
     public Double getTotalByCategorie(Long categorieId) {
-    return depenseRepository.sumMontantByCategorieDepense(categorieId);
-}
+        return depenseRepository.sumMontantByCategorieAndAnnee(categorieId, anneeActiveId());
+    }
 
-    // public Double getTotalByCategorie(Long categorieId) {
-    //     Double total = depenseRepository.sumMontantByCategorieDepense(categorieId);
-    //     return total != null ? total : 0.0;
-    // }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private Long anneeActiveId() {
+        return anneeScolaireService.getAnneeActive().getId();
+    }
 }

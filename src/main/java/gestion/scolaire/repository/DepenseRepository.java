@@ -13,25 +13,26 @@ import gestion.scolaire.model.Depense;
 @Repository
 public interface DepenseRepository extends JpaRepository<Depense, Long> {
 
-    // =========================
-    // FILTER BY CATEGORIE
-    // =========================
+    // ── Sans filtre année (conservés pour compatibilité) ──────────────────────
     List<Depense> findByCategorieDepenseId(Long categorieId);
-
-    // =========================
-    // FILTER BY DATE RANGE
-    // =========================
     List<Depense> findByDateDepenseBetween(LocalDate start, LocalDate end);
 
-    // =========================
-    // TOTAL DEPENSES
-    // =========================
     @Query("SELECT COALESCE(SUM(d.montant),0) FROM Depense d")
     Double sumMontant();
 
-    // =========================
-    // TOTAL PAR CATEGORIE (bonus)
-    // =========================
-    @Query("SELECT SUM(d.montant) FROM Depense d WHERE d.categorieDepense.id =:categorieId")
+    @Query("SELECT COALESCE(SUM(d.montant),0) FROM Depense d WHERE d.categorieDepense.id = :categorieId")
     Double sumMontantByCategorieDepense(@Param("categorieId") Long categorieId);
+
+    // ── Filtrés par année scolaire ────────────────────────────────────────────
+    List<Depense> findByAnneeScolaireId(Long anneeId);
+
+    List<Depense> findByCategorieDepenseIdAndAnneeScolaireId(Long categorieId, Long anneeId);
+
+    List<Depense> findByDateDepenseBetweenAndAnneeScolaireId(LocalDate start, LocalDate end, Long anneeId);
+
+    @Query("SELECT COALESCE(SUM(d.montant),0) FROM Depense d WHERE d.anneeScolaire.id = :anneeId")
+    Double sumMontantByAnnee(@Param("anneeId") Long anneeId);
+
+    @Query("SELECT COALESCE(SUM(d.montant),0) FROM Depense d WHERE d.categorieDepense.id = :categorieId AND d.anneeScolaire.id = :anneeId")
+    Double sumMontantByCategorieAndAnnee(@Param("categorieId") Long categorieId, @Param("anneeId") Long anneeId);
 }

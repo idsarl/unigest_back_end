@@ -26,11 +26,8 @@ public interface AppelRepository extends JpaRepository<Appel, Long> {
 
     List<Appel> findBySeanceAnneeScolaireId(Long anneeId);
 
-     List<Appel> findByEtudiantIdAndSeanceAnneeScolaireIdAndStatut(
-            Long etudiantId,
-            Long anneeId,
-            StatutPresence statut
-    );
+    List<Appel> findByEtudiantIdAndSeanceAnneeScolaireId(Long etudiantId, Long anneeId);
 
-    
+    List<Appel> findByEtudiantIdAndSeanceAnneeScolaireIdAndStatut(
+            Long etudiantId, Long anneeId, StatutPresence statut);
 }

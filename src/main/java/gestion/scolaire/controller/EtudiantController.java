@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.RestController;
 
+import gestion.scolaire.dto.InscriptionEtudiantRequest;
 import gestion.scolaire.model.Etudiant;
 import gestion.scolaire.service.EtudiantService;
 
@@ -17,7 +18,7 @@ public class EtudiantController {
     @Autowired
     private EtudiantService etudiantService;
 
-    // 1️⃣ Créer un étudiant
+    // 1️⃣ Créer un étudiant sans inscription à une classe
     @PostMapping
     public ResponseEntity<Etudiant> creerEtudiant(@RequestBody Etudiant etudiant) {
         return ResponseEntity.ok(etudiantService.creerEtudiant(etudiant));
@@ -59,5 +60,13 @@ public class EtudiantController {
     @GetMapping("/matricule/{matricule}")
     public ResponseEntity<Etudiant> getEtudiantParMatricule(@PathVariable String matricule) {
         return ResponseEntity.ok(etudiantService.getEtudiantParMatricule(matricule));
+    }
+
+    // 8️⃣ Créer un étudiant avec inscription à une classe et lien avec un parent
+    @PostMapping("/inscrire")
+    public ResponseEntity<Etudiant> creerEtudiantAvecInscription(
+            @RequestBody InscriptionEtudiantRequest request) {
+        
+        return ResponseEntity.ok(etudiantService.creerEtudiantAvecInscription(request));
     }
 }

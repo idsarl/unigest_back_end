@@ -1,0 +1,141 @@
+{
+  "info": {
+    "_postman_id": "1d97ae8d-42e2-4797-aea6-a8fcb91e2a5f",
+    "name": "Unigest Backend",
+    "description": "Collection locale pour tester le backend Unigest.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Public - Swagger OpenAPI",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v3/api-docs",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v3", "api-docs"]
+        }
+      }
+    },
+    {
+      "name": "Admins - List",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/admins",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "admins"]
+        }
+      }
+    },
+    {
+      "name": "Admins - Create",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nom\": \"Admin\",\n  \"prenom\": \"Unigest\",\n  \"email\": \"{{adminEmail}}\",\n  \"telephone\": \"70000000\",\n  \"password\": \"{{adminPassword}}\",\n  \"actif\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/admins",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "admins"]
+        }
+      }
+    },
+    {
+      "name": "Auth - Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json.token) {",
+              "  pm.environment.set('token', json.token);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"login\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "Auth - Me",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "me"]
+        }
+      }
+    },
+    {
+      "name": "Niveaux - List",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/niveaux",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "niveaux"]
+        }
+      }
+    },
+    {
+      "name": "Dashboard - Stats",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/dashboard/stats",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "dashboard", "stats"]
+        }
+      }
+    }
+  ]
+}

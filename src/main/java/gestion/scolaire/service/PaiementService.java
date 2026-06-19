@@ -3,7 +3,6 @@ package gestion.scolaire.service;
 import java.time.LocalDate;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import gestion.scolaire.dto.PaiementResumeDTO;
@@ -13,55 +12,35 @@ import gestion.scolaire.model.ModePaiement;
 import gestion.scolaire.model.Paiement;
 import gestion.scolaire.repository.InscriptionRepository;
 import gestion.scolaire.repository.PaiementRepository;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class PaiementService {
 
-    @Autowired
-    private PaiementRepository paiementRepository;
+    private final PaiementRepository paiementRepository;
+    private final InscriptionRepository inscriptionRepository;
+    private final AnneeScolaireService anneeScolaireService;
 
-    @Autowired
-    private InscriptionRepository inscriptionRepository;
+    // ─────────────────────────────────────────────────────────────────────────
+    // Écriture
+    // ─────────────────────────────────────────────────────────────────────────
 
-    // 1️⃣ Ajouter un paiement
-    public Paiement effectuerPaiement(Long inscriptionId,
-                                      double montant,
-                                      ModePaiement mode
-                                      ){
-
+    public Paiement effectuerPaiement(Long inscriptionId, double montant, ModePaiement mode) {
         Inscription inscription = inscriptionRepository.findById(inscriptionId)
                 .orElseThrow(() -> new RuntimeException("Inscription introuvable"));
 
         Paiement paiement = new Paiement();
-         String matricule = genererRef();
         paiement.setInscription(inscription);
         paiement.setMontant(montant);
         paiement.setDatePaiement(LocalDate.now());
         paiement.setModePaiement(mode);
-        paiement.setReference(matricule);
+        paiement.setReference(genererRef());
 
         return paiementRepository.save(paiement);
     }
-    public String genererRef() {
-    int annee = LocalDate.now().getYear();
 
-    // Compter le nombre d'étudiants déjà existants
-    long count = paiementRepository.count();
-
-    // Incrément
-    long numero = count + 1;
-
-    // Formatage avec 4 chiffres
-    return "PAI-" + annee + "-" + String.format("%04d", numero);
-}
-
-    // 2️⃣ Modifier un paiement
-    public Paiement modifierPaiement(Long paiementId,
-                                        Long inscriptionId,
-                                     double montant,
-                                     ModePaiement mode
-                                     ){
-
+    public Paiement modifierPaiement(Long paiementId, Long inscriptionId, double montant, ModePaiement mode) {
         Paiement paiement = paiementRepository.findById(paiementId)
                 .orElseThrow(() -> new RuntimeException("Paiement introuvable"));
 
@@ -76,39 +55,62 @@ public class PaiementService {
         return paiementRepository.save(paiement);
     }
 
-    // 3️⃣ Supprimer un paiement
-    public void supprimerPaiement(Long paiementId){
+    public void supprimerPaiement(Long paiementId) {
         paiementRepository.deleteById(paiementId);
     }
 
-    // 4️⃣ Somme des paiements pour une inscription
-    public double calculerTotalPaye(Long inscriptionId){
+    // ─────────────────────────────────────────────────────────────────────────
+    // Lecture — filtrées par année scolaire active
+    // ─────────────────────────────────────────────────────────────────────────
 
+    /** Tous les paiements de l'année scolaire active. */
+    public List<Paiement> getAllPaiements() {
+        return paiementRepository.findByAnneeId(anneeActiveId());
+    }
+
+    /** Paiements d'un étudiant pour l'année scolaire active. */
+    public List<Paiement> getPaiementsParEtudiant(Long etudiantId) {
+        return paiementRepository.findByEtudiantIdAndAnneeId(etudiantId, anneeActiveId());
+    }
+
+    /** Historique des paiements d'un étudiant dans une classe et année spécifiques. */
+    public List<Paiement> getHistoriquePaiementsEtudiant(Long etudiantId, Long classeId, Long anneeId) {
+        return paiementRepository.findByEtudiantClasseAnnee(etudiantId, classeId, anneeId);
+    }
+
+    /** Historique des paiements par classe et année scolaire (pour rapports). */
+    public List<Paiement> getHistoriquePaiements(Long classeId, Long anneeId) {
+        return paiementRepository.findByClasseAndAnnee(classeId, anneeId);
+    }
+
+    public Paiement getPaiementById(Long paiementId) {
+        return paiementRepository.findById(paiementId)
+                .orElseThrow(() -> new RuntimeException("Paiement introuvable"));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Calculs
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public double calculerTotalPaye(Long inscriptionId) {
         Inscription inscription = inscriptionRepository.findById(inscriptionId)
                 .orElseThrow(() -> new RuntimeException("Inscription introuvable"));
-
         Double total = paiementRepository.sumMontantByInscription(inscription);
         return total == null ? 0 : total;
     }
 
     public PaiementResumeDTO calculerResume(Inscription inscription) {
-
         Filiere filiere = inscription.getClasse().getFiliere();
 
         double fraisInscription = filiere.getFraisInscription();
-        double fraisScolarite = filiere.getFraisScolarite();
-
-        double totalBrut = fraisInscription + fraisScolarite;
-
-        double reduction = inscription.getMontantReduction();
-
-        double totalNet = totalBrut - reduction;
-
-        double totalPaye = inscription.getPaiements()
+        double fraisScolarite   = filiere.getFraisScolarite();
+        double totalBrut        = fraisInscription + fraisScolarite;
+        double reduction        = inscription.getMontantReduction();
+        double totalNet         = totalBrut - reduction;
+        double totalPaye        = inscription.getPaiements()
                 .stream()
                 .mapToDouble(Paiement::getMontant)
                 .sum();
-
         double reste = totalNet - totalPaye;
 
         PaiementResumeDTO dto = new PaiementResumeDTO();
@@ -128,26 +130,16 @@ public class PaiementService {
 
         return dto;
     }
-    
-    // 5️⃣ Récupérer les paiements d'un étudiant
-    public List<Paiement> getPaiementsParEtudiant(Long etudiantId){
-        return paiementRepository.findByEtudiantId(etudiantId);
+
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private String genererRef() {
+        int annee  = LocalDate.now().getYear();
+        long count = paiementRepository.count();
+        return "PAI-" + annee + "-" + String.format("%04d", count + 1);
     }
 
-    // 6️⃣ Historique des paiements par classe et année scolaire
-    public List<Paiement> getHistoriquePaiements(Long classeId, Long anneeId){
-        return paiementRepository.findByClasseAndAnnee(classeId, anneeId);
+    private Long anneeActiveId() {
+        return anneeScolaireService.getAnneeActive().getId();
     }
-
-    // 7️⃣ Récupérer un paiement par ID
-    public Paiement getPaiementById(Long paiementId){
-        return paiementRepository.findById(paiementId)
-                .orElseThrow(() -> new RuntimeException("Paiement introuvable"));
-    }
-
-    public List<Paiement> getHistoriquePaiementsEtudiant(Long etudiantId,
-                                                     Long classeId,
-                                                     Long anneeId){
-    return paiementRepository.findByEtudiantClasseAnnee(etudiantId, classeId, anneeId);
-}
 }

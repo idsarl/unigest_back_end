@@ -12,15 +12,16 @@ import gestion.scolaire.model.StatutSeance;
 @Repository
 public interface SeanceRepository extends JpaRepository<Seance, Long> {
 
-    // Séances par affectation
+    // ── Sans filtre année (conservés pour compatibilité interne) ──────────────
     List<Seance> findByAffectationId(Long affectationId);
-
-    // Séances par date
     List<Seance> findByDate(LocalDate date);
-
-    // Séances par affectation et date
     List<Seance> findByAffectationIdAndDate(Long affectationId, LocalDate date);
-
-    // Séances en cours
     List<Seance> findByStatut(StatutSeance statut);
+
+    // ── Filtrés par année scolaire ────────────────────────────────────────────
+    List<Seance> findByAnneeScolaireId(Long anneeId);
+    List<Seance> findByDateAndAnneeScolaireId(LocalDate date, Long anneeId);
+    List<Seance> findByAffectationIdAndAnneeScolaireId(Long affectationId, Long anneeId);
+    List<Seance> findByAffectationIdAndDateAndAnneeScolaireId(Long affectationId, LocalDate date, Long anneeId);
+    List<Seance> findByStatutAndAnneeScolaireId(StatutSeance statut, Long anneeId);
 }

@@ -5,7 +5,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import gestion.scolaire.dto.SeanceDTO;
@@ -15,21 +14,21 @@ import gestion.scolaire.model.Seance;
 import gestion.scolaire.model.StatutSeance;
 import gestion.scolaire.repository.AffectationRepository;
 import gestion.scolaire.repository.SeanceRepository;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class SeanceService {
 
-    @Autowired
-    private SeanceRepository seanceRepository;
+    private final SeanceRepository seanceRepository;
+    private final AffectationRepository affectationRepository;
+    private final AnneeScolaireService annnAnneeScolaireService;
 
-    @Autowired
-    private AffectationRepository affectationRepository;
-    @Autowired
-    private AnneeScolaireService annnAnneeScolaireService;
+    // ─────────────────────────────────────────────────────────────────────────
+    // Écriture
+    // ─────────────────────────────────────────────────────────────────────────
 
-    // 1️⃣ Démarrer une séance
     public Seance demarrerSeance(Long affectationId, String matiere) {
-
         Affectation affectation = affectationRepository.findById(affectationId)
                 .orElseThrow(() -> new RuntimeException("Affectation introuvable"));
         AnneeScolaire anneeActive = annnAnneeScolaireService.getAnneeActive();
@@ -42,36 +41,45 @@ public class SeanceService {
         seance.setHeureDebut(LocalTime.now());
         seance.setStatut(StatutSeance.EN_COURS);
         seance.setDateCreation(LocalDateTime.now());
-
         return seanceRepository.save(seance);
     }
 
-    // 2️⃣ Terminer une séance
     public Seance terminerSeance(Long seanceId) {
         Seance seance = seanceRepository.findById(seanceId)
                 .orElseThrow(() -> new RuntimeException("Séance introuvable"));
-
         seance.setHeureFin(LocalTime.now());
         seance.setStatut(StatutSeance.TERMINEE);
         seance.setDateModification(LocalDateTime.now());
-
         return seanceRepository.save(seance);
     }
 
-    // 3️⃣ Récupérer séances par date
-    public List<Seance> getSeancesParDate(LocalDate date) {
-        return seanceRepository.findByDate(date);
+    // ─────────────────────────────────────────────────────────────────────────
+    // Lecture — toutes les méthodes filtrent par année scolaire active
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** Toutes les séances de l'année active */
+    public List<Seance> getSeances() {
+        Long anneeId = anneeActiveId();
+        return seanceRepository.findByAnneeScolaireId(anneeId);
     }
 
+    /** Séances d'un jour donné, année active */
+    public List<Seance> getSeancesParDate(LocalDate date) {
+        Long anneeId = anneeActiveId();
+        return seanceRepository.findByDateAndAnneeScolaireId(date, anneeId);
+    }
+
+    /** Séances du jour courant en DTO, année active */
     public List<SeanceDTO> getSeancesDuJour() {
-        return seanceRepository.findByDate(LocalDate.now())
+        Long anneeId = anneeActiveId();
+        return seanceRepository.findByDateAndAnneeScolaireId(LocalDate.now(), anneeId)
                 .stream()
                 .map(s -> {
                     SeanceDTO dto = new SeanceDTO();
                     dto.setId(s.getId());
                     dto.setMatiere(s.getMatiere());
-                    dto.setProfesseur(s.getAffectation().getEnseignant().getPrenom() + " "
-                            + s.getAffectation().getEnseignant().getNom());
+                    dto.setProfesseur(s.getAffectation().getEnseignant().getPrenom()
+                            + " " + s.getAffectation().getEnseignant().getNom());
                     dto.setClasse(s.getAffectation().getClasse().getNom());
                     dto.setFiliere(s.getAffectation().getClasse().getFiliere().getNom());
                     dto.setHeureDebut(String.valueOf(s.getHeureDebut()));
@@ -82,22 +90,27 @@ public class SeanceService {
                 .toList();
     }
 
-    // 4️⃣ Récupérer séances par affectation
+    /** Séances d'une affectation, année active */
     public List<Seance> getSeancesParAffectation(Long affectationId) {
-        return seanceRepository.findByAffectationId(affectationId);
+        Long anneeId = anneeActiveId();
+        return seanceRepository.findByAffectationIdAndAnneeScolaireId(affectationId, anneeId);
     }
 
-    // 5️⃣ Récupérer séances par affectation et date
+    /** Séances d'une affectation à une date donnée, année active */
     public List<Seance> getSeancesParAffectationEtDate(Long affectationId, LocalDate date) {
-        return seanceRepository.findByAffectationIdAndDate(affectationId, date);
+        Long anneeId = anneeActiveId();
+        return seanceRepository.findByAffectationIdAndDateAndAnneeScolaireId(affectationId, date, anneeId);
     }
 
-    // 6️⃣ Récupérer toutes les séances en cours
+    /** Séances en cours (statut EN_COURS), année active */
     public List<Seance> getSeancesEnCours() {
-        return seanceRepository.findByStatut(StatutSeance.EN_COURS);
+        Long anneeId = anneeActiveId();
+        return seanceRepository.findByStatutAndAnneeScolaireId(StatutSeance.EN_COURS, anneeId);
     }
 
-    public List<Seance> getSeances() {
-        return seanceRepository.findAll();
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private Long anneeActiveId() {
+        return annnAnneeScolaireService.getAnneeActive().getId();
     }
 }

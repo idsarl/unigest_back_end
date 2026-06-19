@@ -23,6 +23,10 @@ public interface InscriptionRepository extends JpaRepository<Inscription, Long> 
 
     List<Inscription> findByEtudiantId(Long etudiantId);
 
+    List<Inscription> findByAnneeScolaireId(Long anneeId);
+
+    List<Inscription> findByClasseIdAndAnneeScolaireId(Long classeId, Long anneeId);
+
     @Query("""
             SELECT i
             FROM Inscription i

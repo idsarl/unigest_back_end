@@ -27,6 +27,7 @@ public class AppelService {
     private final AppelRepository appelRepository;
     private final SeanceRepository seanceRepository;
     private final EtudiantRepository etudiantRepository;
+    private final AnneeScolaireService anneeScolaireService;
 
     /**
      * Faire l'appel d'un étudiant dans une séance
@@ -148,11 +149,11 @@ public class AppelService {
     }
 
     /**
-     * Récupérer tous les appels
+     * Récupérer tous les appels de l'année scolaire active
      */
     @Transactional(readOnly = true)
     public List<Appel> getAppels() {
-        return appelRepository.findAll();
+        return appelRepository.findBySeanceAnneeScolaireId(anneeActiveId());
     }
 
     /**
@@ -164,11 +165,11 @@ public class AppelService {
     }
 
     /**
-     * Récupérer les appels d'un étudiant
+     * Récupérer les appels d'un étudiant pour l'année scolaire active
      */
     @Transactional(readOnly = true)
     public List<Appel> getAppelsParEtudiant(Long etudiantId) {
-        return appelRepository.findByEtudiantId(etudiantId);
+        return appelRepository.findByEtudiantIdAndSeanceAnneeScolaireId(etudiantId, anneeActiveId());
     }
 
     /**
@@ -224,5 +225,9 @@ public class AppelService {
      */
     public void supprimerAppelsSeance(Long seanceId) {
         appelRepository.deleteBySeanceId(seanceId);
+    }
+
+    private Long anneeActiveId() {
+        return anneeScolaireService.getAnneeActive().getId();
     }
 }

@@ -5,7 +5,9 @@ import gestion.scolaire.model.Seance;
 import gestion.scolaire.service.SeanceService;
 
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -84,10 +86,45 @@ public class SeanceController {
 
         @Operation(summary = "Récupérer toutes les séances")
         @GetMapping
-        public ResponseEntity<List<Seance>> getSeances() {
+        public ResponseEntity<List<Map<String, Object>>> getSeances() {
 
                 return ResponseEntity.ok(
-                                seanceService.getSeances());
+                                seanceService.getSeances()
+                                                .stream()
+                                                .map(this::toMobileResponse)
+                                                .toList());
         }
 
+        private Map<String, Object> toMobileResponse(Seance seance) {
+                Map<String, Object> response = new LinkedHashMap<>();
+                response.put("id", seance.getId());
+                response.put("date", seance.getDate());
+                response.put("heureDebut", seance.getHeureDebut());
+                response.put("heureFin", seance.getHeureFin());
+                response.put("statut", seance.getStatut());
+                response.put("matiere", seance.getMatiere());
+
+                Map<String, Object> affectation = new LinkedHashMap<>();
+                if (seance.getAffectation() != null) {
+                        affectation.put("id", seance.getAffectation().getId());
+
+                        if (seance.getAffectation().getClasse() != null) {
+                                Map<String, Object> classe = new LinkedHashMap<>();
+                                classe.put("id", seance.getAffectation().getClasse().getId());
+                                classe.put("nom", seance.getAffectation().getClasse().getNom());
+                                affectation.put("classe", classe);
+                        }
+
+                        if (seance.getAffectation().getEnseignant() != null) {
+                                Map<String, Object> enseignant = new LinkedHashMap<>();
+                                enseignant.put("id", seance.getAffectation().getEnseignant().getId());
+                                enseignant.put("nom", seance.getAffectation().getEnseignant().getNom());
+                                enseignant.put("prenom", seance.getAffectation().getEnseignant().getPrenom());
+                                affectation.put("enseignant", enseignant);
+                        }
+                }
+                response.put("affectation", affectation);
+
+                return response;
+        }
 }

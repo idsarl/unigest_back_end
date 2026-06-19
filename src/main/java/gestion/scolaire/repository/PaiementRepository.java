@@ -38,4 +38,16 @@ public interface PaiementRepository extends JpaRepository<Paiement, Long> {
                                              @Param("classeId") Long classeId,
                                              @Param("anneeId") Long anneeId);
 
+    // Tous les paiements d'une année scolaire
+    @Query("SELECT p FROM Paiement p WHERE p.inscription.anneeScolaire.id = :anneeId")
+    List<Paiement> findByAnneeId(@Param("anneeId") Long anneeId);
+
+    // Paiements d'un étudiant pour une année scolaire
+    @Query("SELECT p FROM Paiement p " +
+           "WHERE p.inscription.etudiant.id = :etudiantId " +
+           "AND p.inscription.anneeScolaire.id = :anneeId " +
+           "ORDER BY p.datePaiement ASC")
+    List<Paiement> findByEtudiantIdAndAnneeId(@Param("etudiantId") Long etudiantId,
+                                              @Param("anneeId") Long anneeId);
+
 }
