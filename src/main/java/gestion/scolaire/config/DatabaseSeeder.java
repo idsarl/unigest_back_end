@@ -179,6 +179,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         Affectation affMaths3 = new Affectation();
         affMaths3.setEnseignant(profMaths);
         affMaths3.setClasse(classe3);
+        affMaths3.setAnneeScolaire(annee);
         affMaths3.setMatieres(Arrays.asList(maths));
         affMaths3.setDateCreation(LocalDate.now());
         affMaths3 = affectationRepository.save(affMaths3);
@@ -186,6 +187,7 @@ public class DatabaseSeeder implements CommandLineRunner {
         Affectation affFrancais3 = new Affectation();
         affFrancais3.setEnseignant(profFrancais);
         affFrancais3.setClasse(classe3);
+        affFrancais3.setAnneeScolaire(annee);
         affFrancais3.setMatieres(Arrays.asList(francais));
         affFrancais3.setDateCreation(LocalDate.now());
         affFrancais3 = affectationRepository.save(affFrancais3);

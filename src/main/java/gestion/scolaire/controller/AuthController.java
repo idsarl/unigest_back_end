@@ -82,6 +82,7 @@ public class AuthController {
         authData.put("nom", user.getNom());
         authData.put("prenom", user.getPrenom());
         authData.put("role", user.getRole());
+        authData.put("id", user.getId());
 
         return ResponseEntity.ok(authData);
 }
