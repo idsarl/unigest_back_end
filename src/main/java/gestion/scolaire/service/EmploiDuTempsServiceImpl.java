@@ -133,8 +133,28 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
 
     @Override
     public List<EmploiDuTemps> getByEnseignantAndDate(Long enseignantId, LocalDate date) {
+        System.out.println("=== getByEnseignantAndDate(" + enseignantId + ", " + date + ") ===");
         gestion.scolaire.dto.JourSemaine jourSemaine = gestion.scolaire.dto.JourSemaine.values()[date.getDayOfWeek().getValue() - 1];
-        return repository.findAllValidesByDateAndJour(enseignantId, date, jourSemaine);
+        System.out.println("Jour de la semaine: " + jourSemaine);
+        
+        // First, log all emplois for this enseignant
+        List<EmploiDuTemps> allForEnseignant = repository.findByEnseignantId(enseignantId);
+        System.out.println("Tous les emplois pour cet enseignant: " + allForEnseignant.size());
+        for (EmploiDuTemps e : allForEnseignant) {
+            System.out.println("- ID: " + e.getId() + 
+                               ", Matière: " + (e.getMatiere() != null ? e.getMatiere().getNom() : "null") + 
+                               ", Classe: " + (e.getClasse() != null ? e.getClasse().getNom() : "null") + 
+                               ", Jours: " + e.getJours() + 
+                               ", Heure début: " + e.getHeureDebut() + 
+                               ", Heure fin: " + e.getHeureFin() + 
+                               ", Date début: " + e.getDateDebut() + 
+                               ", Date fin: " + e.getDateFin() + 
+                               ", Actif: " + e.isActif());
+        }
+        
+        List<EmploiDuTemps> result = repository.findAllValidesByDateAndJour(enseignantId, date, jourSemaine);
+        System.out.println("Résultat après filtrage: " + result.size() + " emplois du temps trouvés");
+        return result;
     }
 
     private void verifierConflit(EmploiDuTemps dto) {

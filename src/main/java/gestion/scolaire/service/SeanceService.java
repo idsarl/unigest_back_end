@@ -7,6 +7,7 @@ import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import gestion.scolaire.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -195,12 +196,123 @@ public class SeanceService {
 
     // Récupérer les séances du jour d'un enseignant spécifique
     public List<SeanceDTO> getSeancesDuJourParEnseignant(Long enseignantId) {
+        // D'abord, générer toutes les séances manquantes pour cet enseignant aujourd'hui
+        genererSeancesManquantesPourEnseignant(enseignantId);
+        
         List<Seance> seances = seanceRepository.findByAffectationEnseignantIdAndDate(enseignantId, LocalDate.now());
+        System.out.println("Séances après nettoyage et ajout: " + seances.size());
         updateSeanceStatuses(seances);
         return seances.stream()
                 .sorted(Comparator.comparing(Seance::getHeureDebut, Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(this::convertToDTO)
                 .toList();
+    }
+    
+    // Générer les séances manquantes pour un enseignant spécifique aujourd'hui
+    private void genererSeancesManquantesPourEnseignant(Long enseignantId) {
+        LocalDate aujourdHui = LocalDate.now();
+        System.out.println("=== Génération séances pour enseignant " + enseignantId + " le " + aujourdHui);
+        
+        // 1. Récupérer tous les EmploiDuTemps du jour
+        List<EmploiDuTemps> emploisDuJour = emploiDuTempsService.getByEnseignantAndDate(enseignantId, aujourdHui)
+                .stream()
+                .filter(e -> e.getType() == gestion.scolaire.dto.TypeEmploi.COURS)
+                .toList();
+        
+        System.out.println("Emplois du temps trouvés: " + emploisDuJour.size());
+        for (EmploiDuTemps edt : emploisDuJour) {
+            System.out.println("- " + edt.getMatiere().getNom() + " " + edt.getHeureDebut() + "-" + edt.getHeureFin() + " " + edt.getClasse().getNom());
+        }
+
+        // 2. Récupérer toutes les Seances existantes pour cet enseignant aujourd'hui
+        List<Seance> seancesExistantes = seanceRepository.findByAffectationEnseignantIdAndDate(enseignantId, aujourdHui);
+        System.out.println("Séances existantes avant nettoyage: " + seancesExistantes.size());
+        for (Seance s : seancesExistantes) {
+            System.out.println("- " + s.getMatiere() + " " + s.getHeureDebut() + "-" + s.getHeureFin() + " " + s.getStatut());
+        }
+
+        // 3. Supprimer les Seances qui ne correspondent à aucun EmploiDuTemps
+        List<Seance> seancesASupprimer = seancesExistantes.stream()
+                .filter(seance -> {
+                    // Vérifier si cette séance correspond à un EmploiDuTemps
+                    return emploisDuJour.stream().noneMatch(edt -> {
+                        // Vérifier si la séance correspond à l'EDT
+                        if (seance.getHeureDebut() == null || seance.getHeureFin() == null) {
+                            return false;
+                        }
+                        if (!seance.getMatiere().equals(edt.getMatiere().getNom())) {
+                            return false;
+                        }
+                        if (!seance.getHeureDebut().equals(edt.getHeureDebut())) {
+                            return false;
+                        }
+                        if (!seance.getHeureFin().equals(edt.getHeureFin())) {
+                            return false;
+                        }
+                        // Vérifier la classe
+                        if (seance.getAffectation() == null || seance.getAffectation().getClasse() == null) {
+                            return false;
+                        }
+                        if (!seance.getAffectation().getClasse().getId().equals(edt.getClasse().getId())) {
+                            return false;
+                        }
+                        return true;
+                    });
+                })
+                .toList();
+        
+        System.out.println("Séances à supprimer: " + seancesASupprimer.size());
+        for (Seance s : seancesASupprimer) {
+            System.out.println("- Suppression: " + s.getMatiere() + " " + s.getHeureDebut() + "-" + s.getHeureFin());
+            seanceRepository.delete(s);
+        }
+
+        // 4. Pour chaque EmploiDuTemps, vérifier si une Seance correspondante existe
+        for (EmploiDuTemps emploi : emploisDuJour) {
+            if (emploi.getClasse() == null || emploi.getEnseignant() == null || emploi.getMatiere() == null) {
+                continue;
+            }
+
+            // Trouver l'affectation correspondante
+            Optional<Affectation> affectationOpt = affectationRepository.findByClasseAndEnseignantAndMatiere(
+                    emploi.getClasse().getId(),
+                    emploi.getEnseignant().getId(),
+                    emploi.getMatiere().getNom()
+            );
+
+            if (affectationOpt.isEmpty()) {
+                System.out.println("Pas d'affectation pour " + emploi.getClasse().getNom() + " " + emploi.getMatiere().getNom());
+                continue;
+            }
+
+            Affectation affectation = affectationOpt.get();
+
+            // Vérifier si la séance existe déjà (après suppression)
+            List<Seance> existantesPourAffectation = seanceRepository.findByAffectationIdAndDate(affectation.getId(), aujourdHui);
+            boolean seanceExiste = existantesPourAffectation.stream()
+                    .anyMatch(s -> s.getMatiere().equals(emploi.getMatiere().getNom()) && 
+                                   s.getHeureDebut() != null &&
+                                   s.getHeureDebut().equals(emploi.getHeureDebut()) &&
+                                   s.getHeureFin() != null &&
+                                   s.getHeureFin().equals(emploi.getHeureFin()));
+
+            if (!seanceExiste) {
+                System.out.println("Création de la séance pour " + emploi.getMatiere().getNom());
+                AnneeScolaire anneeActive = annnAnneeScolaireService.getAnneeActive();
+                Seance seance = new Seance();
+                seance.setAffectation(affectation);
+                seance.setAnneeScolaire(anneeActive);
+                seance.setMatiere(emploi.getMatiere().getNom());
+                seance.setDate(aujourdHui);
+                seance.setHeureDebut(emploi.getHeureDebut());
+                seance.setHeureFin(emploi.getHeureFin());
+                seance.setStatut(StatutSeance.PLANIFIEE);
+                seance.setDateCreation(LocalDateTime.now());
+                seance.setDateModification(LocalDateTime.now());
+
+                seanceRepository.save(seance);
+            }
+        }
     }
 
     public Map<String, Object> getAbsencesDuJourParEnseignant(Long enseignantId) {
