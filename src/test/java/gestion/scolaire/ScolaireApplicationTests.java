@@ -57,15 +57,21 @@ class ScolaireApplicationTests {
 
     @Test
     void testUserViewProjection() {
-        Utilisateur user = utilisateurRepository.findAll().get(0); // get a user
+        // Avoid findAll() on the abstract Utilisateur — Hibernate 6 JOINED inheritance triggers
+        // an AssertionError in EntityInitializerImpl when resolving the CASE-based discriminator.
+        String email = jdbcTemplate.queryForObject("SELECT email FROM utilisateur LIMIT 1", String.class);
+        String telephone = jdbcTemplate.queryForObject("SELECT telephone FROM utilisateur LIMIT 1", String.class);
         System.out.println("=== TESTING USERVIEW PROJECTION ===");
-        System.out.println("User ID in database: " + user.getId() + ", Email: " + user.getEmail());
+        System.out.println("Email from DB: " + email);
 
-        UserView view = utilisateurRepository.findProjectedByEmailOrTelephone(user.getEmail(), user.getEmail()).orElseThrow();
+        UserView view = utilisateurRepository.findProjectedByEmailOrTelephone(email, telephone).orElseThrow();
         System.out.println("Projection ID: " + view.getIdUser());
         System.out.println("Projection Email: " + view.getEmail());
         System.out.println("Projection Username: " + view.getUsername());
-        
+
+        assertNotNull(view.getIdUser());
+        assertNotNull(view.getEmail());
+
         System.out.println("MY_BCRYPT_HASH: " + new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode("123456"));
     }
 

@@ -21,4 +21,7 @@ public class ParametreEcole {
 
     /** Part de la note de composition dans la moyenne (ex: 60.0 = 60 %) */
     private double quotaComposition = 60.0;
+
+    /** Coefficient de la note de conduite dans la moyenne générale (ex: 1.0) */
+    private double coefficientConduite = 1.0;
 }

@@ -73,7 +73,7 @@ public class BulletinPdfService {
             doc.add(new Paragraph(" "));
 
             // ── 4. Tableau des notes ──────────────────────────────────────────
-            doc.add(creerTableauNotes(lignes, stats, bulletin));
+            doc.add(creerTableauNotes(lignes, stats, bulletin, ecole));
 
             // ── 5. Appréciation du Proviseur ──────────────────────────────────
             doc.add(new Paragraph(" "));
@@ -158,7 +158,8 @@ public class BulletinPdfService {
      * Lignes de bas :
      * Total Coeff, Total, Moyenne du 1er, Moyenne de l'élève, Rang
      */
-    private PdfPTable creerTableauNotes(List<LigneBulletin> lignes, StatistiquesClasse stats, Bulletin b)
+    private PdfPTable creerTableauNotes(List<LigneBulletin> lignes, StatistiquesClasse stats, Bulletin b,
+                                         ParametreEcole ecole)
             throws DocumentException {
 
         // Largeurs relatives des 7 colonnes
@@ -212,6 +213,23 @@ public class BulletinPdfService {
                 table.addCell(cellule(nvl(l.getAppreciation()),
                         F_NORMAL, Element.ALIGN_CENTER, bg));
             }
+        }
+
+        // ── Ligne Conduite (optionnelle) ──────────────────────────────────────
+        if (b.getNoteConduite() != null) {
+            double coeffConduite = ecole.getCoefficientConduite();
+            double moyCoeffConduite = b.getNoteConduite() * coeffConduite;
+            totalCoeff    += coeffConduite;
+            totalMoyCoeff += moyCoeffConduite;
+            boolean pair = lignes != null && lignes.size() % 2 == 0;
+            Color bg = pair ? BLANC : GRIS_CLAIR;
+            table.addCell(cellule("Conduite",                                   F_NORMAL, Element.ALIGN_LEFT,   bg));
+            table.addCell(cellule("—",                                          F_NORMAL, Element.ALIGN_CENTER, bg));
+            table.addCell(cellule("—",                                          F_NORMAL, Element.ALIGN_CENTER, bg));
+            table.addCell(cellule(fmt2(b.getNoteConduite()),                    F_NORMAL, Element.ALIGN_CENTER, bg));
+            table.addCell(cellule(fmtEntier(coeffConduite),                     F_NORMAL, Element.ALIGN_CENTER, bg));
+            table.addCell(cellule(fmt2(moyCoeffConduite),                       F_NORMAL, Element.ALIGN_CENTER, bg));
+            table.addCell(cellule(nvl(parametreEcoleService.calculerAppreciation(b.getNoteConduite())), F_NORMAL, Element.ALIGN_CENTER, bg));
         }
 
         // ── Ligne Total Coeff ─────────────────────────────────────────────────

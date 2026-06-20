@@ -36,7 +36,7 @@ public class BulletinService {
     // Génération
     // ─────────────────────────────────────────────────────────────────────────
 
-    public Bulletin genererBulletin(Long etudiantId, Integer periode, TypePeriode typePeriode) {
+    public Bulletin genererBulletin(Long etudiantId, Integer periode, TypePeriode typePeriode, Double noteConduite) {
 
         Etudiant etudiant = etudiantRepository.findById(etudiantId)
                 .orElseThrow(() -> new RuntimeException("Étudiant introuvable"));
@@ -61,14 +61,24 @@ public class BulletinService {
         ResultatCalcul resultat = calculerMoyennesEtLignes(
                 etudiantId, classe.getId(), anneeActive.getId(), periode, typePeriode);
 
+        double moyenneFinale = resultat.moyenneGenerale;
+        if (noteConduite != null && resultat.totalCoeff > 0) {
+            double coeffConduite = parametreEcoleService.getParametres().getCoefficientConduite();
+            moyenneFinale = arrondir2(
+                (resultat.moyenneGenerale * resultat.totalCoeff + noteConduite * coeffConduite)
+                / (resultat.totalCoeff + coeffConduite)
+            );
+        }
+
         Bulletin bulletin = new Bulletin();
         bulletin.setEtudiant(etudiant);
         bulletin.setClasse(classe);
         bulletin.setAnneeScolaire(anneeActive);
         bulletin.setPeriode(periode);
         bulletin.setTypePeriode(typePeriode);
-        bulletin.setMoyenneGenerale(arrondir2(resultat.moyenneGenerale));
-        bulletin.setAppreciation(parametreEcoleService.calculerAppreciation(resultat.moyenneGenerale));
+        bulletin.setNoteConduite(noteConduite);
+        bulletin.setMoyenneGenerale(arrondir2(moyenneFinale));
+        bulletin.setAppreciation(parametreEcoleService.calculerAppreciation(moyenneFinale));
         bulletin.setDateGeneration(LocalDate.now());
 
         Bulletin saved = bulletinRepository.save(bulletin);
@@ -79,12 +89,13 @@ public class BulletinService {
         ligneBulletinRepository.saveAll(resultat.lignes);
         saved.setLignes(resultat.lignes);
 
+        bulletinRepository.flush(); // flush avant la requête de rang pour que le nouveau bulletin soit visible
         recalculerRangs(classe.getId(), anneeActive.getId(), periode, typePeriode);
 
-        return saved;
+        return bulletinRepository.findById(saved.getId()).orElse(saved);
     }
 
-    public Bulletin regenererBulletin(Long etudiantId, Integer periode, TypePeriode typePeriode) {
+    public Bulletin regenererBulletin(Long etudiantId, Integer periode, TypePeriode typePeriode, Double noteConduite) {
 
         Bulletin bulletin = getBulletinEtudiantPeriode(etudiantId, periode, typePeriode);
         AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
@@ -93,10 +104,20 @@ public class BulletinService {
                 etudiantId, bulletin.getClasse().getId(),
                 anneeActive.getId(), periode, typePeriode);
 
+        double moyenneFinale = resultat.moyenneGenerale;
+        if (noteConduite != null && resultat.totalCoeff > 0) {
+            double coeffConduite = parametreEcoleService.getParametres().getCoefficientConduite();
+            moyenneFinale = arrondir2(
+                (resultat.moyenneGenerale * resultat.totalCoeff + noteConduite * coeffConduite)
+                / (resultat.totalCoeff + coeffConduite)
+            );
+        }
+
         ligneBulletinRepository.deleteAll(ligneBulletinRepository.findByBulletin(bulletin));
 
-        bulletin.setMoyenneGenerale(arrondir2(resultat.moyenneGenerale));
-        bulletin.setAppreciation(parametreEcoleService.calculerAppreciation(resultat.moyenneGenerale));
+        bulletin.setNoteConduite(noteConduite);
+        bulletin.setMoyenneGenerale(arrondir2(moyenneFinale));
+        bulletin.setAppreciation(parametreEcoleService.calculerAppreciation(moyenneFinale));
         bulletin.setDateGeneration(LocalDate.now());
         Bulletin saved = bulletinRepository.save(bulletin);
 
@@ -106,9 +127,16 @@ public class BulletinService {
         ligneBulletinRepository.saveAll(resultat.lignes);
         saved.setLignes(resultat.lignes);
 
+        bulletinRepository.flush();
         recalculerRangs(bulletin.getClasse().getId(), anneeActive.getId(), periode, typePeriode);
 
-        return saved;
+        return bulletinRepository.findById(saved.getId()).orElse(saved);
+    }
+
+    /** Recalcule les rangs pour toute une classe sur l'année active (exposé pour l'endpoint de correction). */
+    public void recalculerRangsClasse(Long classeId, Integer periode, TypePeriode typePeriode) {
+        AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
+        recalculerRangs(classeId, anneeActive.getId(), periode, typePeriode);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -191,7 +219,7 @@ public class BulletinService {
 
         double moyenneGenerale = (totalCoeff > 0) ? (totalPondere / totalCoeff) : 0;
 
-        return new ResultatCalcul(moyenneGenerale, lignes);
+        return new ResultatCalcul(moyenneGenerale, totalCoeff, lignes);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -285,10 +313,12 @@ public class BulletinService {
 
     private static class ResultatCalcul {
         final double moyenneGenerale;
+        final double totalCoeff;
         final List<LigneBulletin> lignes;
 
-        ResultatCalcul(double moyenneGenerale, List<LigneBulletin> lignes) {
+        ResultatCalcul(double moyenneGenerale, double totalCoeff, List<LigneBulletin> lignes) {
             this.moyenneGenerale = moyenneGenerale;
+            this.totalCoeff = totalCoeff;
             this.lignes = lignes;
         }
     }

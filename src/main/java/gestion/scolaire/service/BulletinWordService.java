@@ -54,7 +54,7 @@ public class BulletinWordService {
             para(doc, "");
 
             // ── 4. Tableau des notes ──────────────────────────────────────────
-            ajouterTableauNotes(doc, lignes, stats, bulletin);
+            ajouterTableauNotes(doc, lignes, stats, bulletin, ecole);
 
             // ── 5. Appréciation du proviseur ──────────────────────────────────
             para(doc, "");
@@ -126,10 +126,11 @@ public class BulletinWordService {
     }
 
     private void ajouterTableauNotes(XWPFDocument doc, List<LigneBulletin> lignes,
-                                     StatistiquesClasse stats, Bulletin bulletin) {
+                                     StatistiquesClasse stats, Bulletin bulletin, ParametreEcole ecole) {
 
         int nbLignesDonnees = lignes != null ? lignes.size() : 0;
-        int nbLignesTotal   = 1 + nbLignesDonnees + 5; // 1 en-tête + données + 5 résumés
+        int conduiteLignes  = (bulletin.getNoteConduite() != null) ? 1 : 0;
+        int nbLignesTotal   = 1 + nbLignesDonnees + conduiteLignes + 5; // 1 en-tête + données + conduite? + 5 résumés
 
         XWPFTable table = doc.createTable(nbLignesTotal, 7);
         table.setWidth("100%");
@@ -175,7 +176,33 @@ public class BulletinWordService {
             setTexte(row.getCell(6), nvl(l.getAppreciation()), false, ParagraphAlignment.CENTER);
         }
 
-        int base = 1 + nbLignesDonnees;
+        // ── Ligne Conduite (optionnelle) ──────────────────────────────────────
+        if (bulletin.getNoteConduite() != null) {
+            double coeffConduite     = ecole.getCoefficientConduite();
+            double moyCoeffConduite  = bulletin.getNoteConduite() * coeffConduite;
+            totalCoeff    += coeffConduite;
+            totalMoyCoeff += moyCoeffConduite;
+
+            int rowIdx = 1 + nbLignesDonnees;
+            XWPFTableRow row = table.getRow(rowIdx);
+            String bg = (nbLignesDonnees % 2 == 0) ? BLANC : GRIS_CLAIR;
+            setCouleur(row.getCell(0), bg);
+            setTexte(row.getCell(0), "Conduite",                                         false, ParagraphAlignment.LEFT);
+            setCouleur(row.getCell(1), bg);
+            setTexte(row.getCell(1), "—",                                                false, ParagraphAlignment.CENTER);
+            setCouleur(row.getCell(2), bg);
+            setTexte(row.getCell(2), "—",                                                false, ParagraphAlignment.CENTER);
+            setCouleur(row.getCell(3), bg);
+            setTexte(row.getCell(3), fmt2(bulletin.getNoteConduite()),                   false, ParagraphAlignment.CENTER);
+            setCouleur(row.getCell(4), bg);
+            setTexte(row.getCell(4), fmtEntier(coeffConduite),                          false, ParagraphAlignment.CENTER);
+            setCouleur(row.getCell(5), bg);
+            setTexte(row.getCell(5), fmt2(moyCoeffConduite),                             false, ParagraphAlignment.CENTER);
+            setCouleur(row.getCell(6), bg);
+            setTexte(row.getCell(6), nvl(parametreEcoleService.calculerAppreciation(bulletin.getNoteConduite())), false, ParagraphAlignment.CENTER);
+        }
+
+        int base = 1 + nbLignesDonnees + conduiteLignes;
 
         // ── Total Coeff ────────────────────────────────────────────────────────
         ligneResume(table, base,     "Total Coeff", fmtEntier(totalCoeff), 4);

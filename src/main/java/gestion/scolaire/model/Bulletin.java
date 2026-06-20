@@ -40,6 +40,9 @@ public class Bulletin {
 
     private LocalDate dateGeneration;
 
+    /** Note de conduite (optionnelle, sur 20) */
+    private Double noteConduite;
+
     @OneToMany(mappedBy = "bulletin", cascade = CascadeType.ALL)
     private List<LigneBulletin> lignes;
 }

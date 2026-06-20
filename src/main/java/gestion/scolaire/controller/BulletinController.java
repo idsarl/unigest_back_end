@@ -28,10 +28,11 @@ public class BulletinController {
     public ResponseEntity<Bulletin> genererBulletin(
             @RequestParam Long etudiantId,
             @RequestParam Integer periode,
-            @RequestParam TypePeriode typePeriode) {
+            @RequestParam TypePeriode typePeriode,
+            @RequestParam(required = false) Double noteConduite) {
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(bulletinService.genererBulletin(etudiantId, periode, typePeriode));
+                .body(bulletinService.genererBulletin(etudiantId, periode, typePeriode, noteConduite));
     }
 
     @GetMapping("/{id}")
@@ -73,10 +74,11 @@ public class BulletinController {
     public ResponseEntity<Bulletin> regenererBulletin(
             @RequestParam Long etudiantId,
             @RequestParam Integer periode,
-            @RequestParam TypePeriode typePeriode) {
+            @RequestParam TypePeriode typePeriode,
+            @RequestParam(required = false) Double noteConduite) {
 
         return ResponseEntity.ok(
-                bulletinService.regenererBulletin(etudiantId, periode, typePeriode));
+                bulletinService.regenererBulletin(etudiantId, periode, typePeriode, noteConduite));
     }
 
     /** Télécharger le PDF d'un bulletin */
@@ -101,6 +103,17 @@ public class BulletinController {
     public ResponseEntity<Void> supprimerBulletin(@PathVariable Long id) {
         bulletinService.supprimerBulletin(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Recalcule les rangs de toute une classe pour une période donnée (correction de données). */
+    @PutMapping("/classe/{classeId}/recalculer-rangs")
+    public ResponseEntity<Void> recalculerRangs(
+            @PathVariable Long classeId,
+            @RequestParam Integer periode,
+            @RequestParam TypePeriode typePeriode) {
+
+        bulletinService.recalculerRangsClasse(classeId, periode, typePeriode);
+        return ResponseEntity.ok().build();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
