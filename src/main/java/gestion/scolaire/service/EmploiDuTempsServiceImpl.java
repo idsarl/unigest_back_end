@@ -39,28 +39,7 @@ public class EmploiDuTempsServiceImpl implements EmploiDuTempsService {
     private final EmploiDuTempsRepository repository;
     private final AnneeScolaireService anneeScolaireService;
 
-    // @Override
-    // public EmploiDuTemps save(EmploiDuTemps dto) {
-    //     AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
-    //     EmploiDuTemps em = new EmploiDuTemps();
-    //     em.setActif(dto.isActif());
-    //     em.setAnneeScolaire(anneeActive);
-    //     em.setClasse(dto.getClasse());
-    //     em.setCouleur(dto.getCouleur());
-    //     em.setDateDebut(dto.getDateDebut());
-    //     em.setDateFin(dto.getDateFin());
-    //     em.setDescription(dto.getDescription());
-    //     em.setEnseignant(dto.getEnseignant());
-    //     em.setHeureDebut(dto.getHeureDebut());
-    //     em.setHeureFin(dto.getHeureFin());
-    //     em.setJours(dto.getJours());
-    //     em.setMatiere(dto.getMatiere());
-    //     em.setPeriodicite(dto.getPeriodicite());
-    //     em.setType(dto.getType());
-
-    //     verifierConflit(dto);
-    //     return repository.save(dto);
-    // }@Override
+   
 public EmploiDuTemps save(EmploiDuTemps dto) {
     AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
     EmploiDuTemps em = new EmploiDuTemps();
@@ -108,7 +87,7 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
 
     @Override
     public List<EmploiDuTemps> getAll() {
-        return repository.findByActifTrue();
+        return repository.findByActifTrueAndAnneeScolaireId(anneeScolaireService.getAnneeActive().getId());
     }
 
     @Override
@@ -128,7 +107,33 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
 
     @Override
     public List<EmploiDuTemps> getByClasse(Long classeId) {
-        return repository.findByClasseId(classeId);
+        return repository.findByClasseIdAndAnneeScolaireId(classeId, anneeScolaireService.getAnneeActive().getId());
+    }
+
+    @Override
+    public List<EmploiDuTemps> getByEnseignantAndDate(Long enseignantId, LocalDate date) {
+        System.out.println("=== getByEnseignantAndDate(" + enseignantId + ", " + date + ") ===");
+        gestion.scolaire.dto.JourSemaine jourSemaine = gestion.scolaire.dto.JourSemaine.values()[date.getDayOfWeek().getValue() - 1];
+        System.out.println("Jour de la semaine: " + jourSemaine);
+        
+        // First, log all emplois for this enseignant
+        List<EmploiDuTemps> allForEnseignant = repository.findByEnseignantId(enseignantId);
+        System.out.println("Tous les emplois pour cet enseignant: " + allForEnseignant.size());
+        for (EmploiDuTemps e : allForEnseignant) {
+            System.out.println("- ID: " + e.getId() + 
+                               ", Matière: " + (e.getMatiere() != null ? e.getMatiere().getNom() : "null") + 
+                               ", Classe: " + (e.getClasse() != null ? e.getClasse().getNom() : "null") + 
+                               ", Jours: " + e.getJours() + 
+                               ", Heure début: " + e.getHeureDebut() + 
+                               ", Heure fin: " + e.getHeureFin() + 
+                               ", Date début: " + e.getDateDebut() + 
+                               ", Date fin: " + e.getDateFin() + 
+                               ", Actif: " + e.isActif());
+        }
+        
+        List<EmploiDuTemps> result = repository.findAllValidesByDateAndJour(enseignantId, date, jourSemaine);
+        System.out.println("Résultat après filtrage: " + result.size() + " emplois du temps trouvés");
+        return result;
     }
 
     private void verifierConflit(EmploiDuTemps dto) {

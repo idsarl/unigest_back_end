@@ -1,14 +1,13 @@
 package gestion.scolaire.controller;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import gestion.scolaire.dto.AppelBatchRequest;
+import gestion.scolaire.dto.ClasseAttendanceSummaryDTO;
 import gestion.scolaire.model.Appel;
 import gestion.scolaire.model.StatutPresence;
 import gestion.scolaire.service.AppelService;
@@ -85,14 +84,24 @@ public class AppelController {
          * 5️⃣ Récupérer les appels d'un étudiant
          */
         @GetMapping("/etudiant/{etudiantId}")
-        public ResponseEntity<List<Map<String, Object>>> getAppelsParEtudiant(
+        public ResponseEntity<List<Appel>> getAppelsParEtudiant(
                         @PathVariable Long etudiantId) {
 
                 return ResponseEntity.ok(
-                                appelService.getAppelsParEtudiant(etudiantId)
-                                                .stream()
-                                                .map(this::toMobileResponse)
-                                                .toList());
+                                appelService.getAppelsParEtudiant(etudiantId));
+        }
+
+        /**
+         * 5️⃣1️⃣ Résumé de présence pour une classe
+         */
+        @GetMapping("/classe/{classeId}/resume")
+        public ResponseEntity<ClasseAttendanceSummaryDTO> getResumeParClasse(
+                        @PathVariable Long classeId,
+                        @RequestParam(required = false) Long seanceId) {
+
+                return ResponseEntity.ok(appelService.getResumeParClasse(
+                                classeId,
+                                seanceId));
         }
 
         /**
@@ -183,29 +192,5 @@ public class AppelController {
 
                 return ResponseEntity.ok(
                                 "Tous les appels de la séance ont été supprimés");
-        }
-
-        private Map<String, Object> toMobileResponse(Appel appel) {
-                Map<String, Object> response = new LinkedHashMap<>();
-                response.put("id", appel.getId());
-                response.put("statut", appel.getStatut());
-                response.put("minutesRetard", appel.getMinutesRetard());
-                response.put("motif", appel.getMotif());
-                response.put("justifie", appel.isJustifie());
-                response.put("dateJustification", appel.getDateJustification());
-
-                Map<String, Object> etudiant = new LinkedHashMap<>();
-                etudiant.put("id", appel.getEtudiant().getId());
-                response.put("etudiant", etudiant);
-
-                Map<String, Object> seance = new LinkedHashMap<>();
-                seance.put("id", appel.getSeance().getId());
-                seance.put("date", appel.getSeance().getDate());
-                seance.put("heureDebut", appel.getSeance().getHeureDebut());
-                seance.put("heureFin", appel.getSeance().getHeureFin());
-                seance.put("matiere", appel.getSeance().getMatiere());
-                response.put("seance", seance);
-
-                return response;
         }
 }

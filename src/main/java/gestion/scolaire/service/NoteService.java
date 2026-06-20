@@ -50,7 +50,8 @@ public class NoteService {
                         double valeur,
                         TypeNote type,
                         Integer periode,
-                        TypePeriode typePeriode) {
+                        TypePeriode typePeriode,
+                        LocalDate dateEvaluation) {
 
                 if (valeur < 0 || valeur > 20) {
                         throw new RuntimeException("La note doit être comprise entre 0 et 20");
@@ -67,19 +68,19 @@ public class NoteService {
 
                 AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
 
-                boolean existe = noteRepository
-                                .existsByEtudiantIdAndAffectationIdAndAnneeScolaireIdAndMatiereIdAndPeriodeAndTypeAndTypePeriode(
-                                                etudiantId,
-                                                affectationId,
-                                                anneeActive.getId(),
-                                                matiereId,
-                                                periode,
-                                                type,
-                                                typePeriode);
+                // boolean existe = noteRepository
+                //                 .existsByEtudiantIdAndAffectationIdAndAnneeScolaireIdAndMatiereIdAndPeriodeAndTypeAndTypePeriode(
+                //                                 etudiantId,
+                //                                 affectationId,
+                //                                 anneeActive.getId(),
+                //                                 matiereId,
+                //                                 periode,
+                //                                 type,
+                //                                 typePeriode);
 
-                if (existe) {
-                        throw new RuntimeException("Cette note existe déjà pour cet étudiant");
-                }
+                // if (existe) {
+                //         throw new RuntimeException("Cette note existe déjà pour cet étudiant");
+                // }
 
                 ClasseMatiere classeMatiere = classeMatiereRepository
                                 .findByClasseIdAndMatiereId(
@@ -97,7 +98,12 @@ public class NoteService {
                 note.setType(type);
                 note.setPeriode(periode);
                 note.setTypePeriode(typePeriode);
-                note.setDateEvaluation(LocalDate.now());
+                
+                if (dateEvaluation != null) {
+                        note.setDateEvaluation(dateEvaluation);
+                } else {
+                        note.setDateEvaluation(LocalDate.now());
+                }
 
                 return noteRepository.save(note);
         }
@@ -117,7 +123,8 @@ public class NoteService {
                                         request.getValeur(),
                                         request.getType(),
                                         request.getPeriode(),
-                                        request.getTypePeriode());
+                                        request.getTypePeriode(),
+                                        request.getDateEvaluation());
 
                         notes.add(note);
                 }

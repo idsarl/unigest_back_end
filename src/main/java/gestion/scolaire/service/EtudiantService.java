@@ -46,16 +46,16 @@ public class EtudiantService {
     private InscriptionRepository inscriptionRepository;
 
     public Etudiant creerEtudiant(Etudiant etudiant) {
-        if (etudiant.getPassword() == null || etudiant.getPassword().isBlank()) {
-            throw new IllegalArgumentException("Le mot de passe de l'étudiant est obligatoire");
-        }
-        if ((etudiant.getEmail() == null || etudiant.getEmail().isBlank()) && 
-            (etudiant.getTelephone() == null || etudiant.getTelephone().isBlank())) {
-            throw new IllegalArgumentException("L'identifiant de connexion (email ou téléphone) est obligatoire");
-        }
+        // if (etudiant.getPassword() == null || etudiant.getPassword().isBlank()) {
+        //     throw new IllegalArgumentException("Le mot de passe de l'étudiant est obligatoire");
+        // }
+        // if ((etudiant.getEmail() == null || etudiant.getEmail().isBlank()) && 
+        //     (etudiant.getTelephone() == null || etudiant.getTelephone().isBlank())) {
+        //     throw new IllegalArgumentException("L'identifiant de connexion (email ou téléphone) est obligatoire");
+        // }
 
-        String rawPassword = etudiant.getPassword();
-        etudiant.setPassword(passwordEncoder.encode(rawPassword));
+         String encodedPassword = passwordEncoder.encode("123456");
+        etudiant.setPassword(encodedPassword);
         etudiant.setRole(Role.ETUDIANT);
         etudiant.setActif(true);
 
@@ -67,7 +67,7 @@ public class EtudiantService {
         
         if (etudiant.getEmail() != null && !etudiant.getEmail().isBlank()) {
             try {
-                envoyerMailCreation(saved, rawPassword);
+                envoyerMailCreation(saved, "123456");
             } catch (Exception ex) {
                 // Ne pas bloquer la transaction si l'envoi de mail échoue (ex. pas de config SMTP en dev)
                 System.err.println("Erreur d'envoi de mail à l'étudiant : " + ex.getMessage());

@@ -22,7 +22,8 @@ import lombok.Data;
                                 "matiere_id",
                                 "periode",
                                 "type",
-                                "type_periode"
+                                "type_periode",
+                                "date_evaluation"
                         }
                 )
         }

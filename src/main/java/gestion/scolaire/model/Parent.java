@@ -8,16 +8,14 @@ import jakarta.persistence.*;
 
 
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
 @Data
-@EqualsAndHashCode(callSuper = false)
 @Entity
 public class Parent extends Utilisateur {
 
     private String adresse;
 
-    @OneToMany(mappedBy = "parent", fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "parent")
     @JsonIgnore
     private List<Etudiant> enfants;
 }

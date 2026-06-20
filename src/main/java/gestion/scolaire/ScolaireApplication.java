@@ -3,7 +3,10 @@ package gestion.scolaire;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+import org.springframework.scheduling.annotation.EnableScheduling;
+
 @SpringBootApplication
+@EnableScheduling
 public class ScolaireApplication {
 
 	public static void main(String[] args) {

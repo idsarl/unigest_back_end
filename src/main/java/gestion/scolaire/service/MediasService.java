@@ -37,7 +37,11 @@ public class MediasService {
             Path filePath = tempDir.resolve(fileName);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            fileUpload.uploadFileToFTP(filePath, fileName);
+            try {
+                fileUpload.uploadFileToFTP(filePath, fileName);
+            } catch (Exception e) {
+                System.out.println("FTP upload failed, keeping file locally: " + e.getMessage());
+            }
 
             m.setFichier(fileName);
         }
@@ -47,10 +51,16 @@ public class MediasService {
         Medias saved = mediasRepository.save(m);
 
         if (file != null && !file.isEmpty()) {
+            
+            String originalName = file.getOriginalFilename();
+            if (originalName == null || originalName.isBlank()) {
+                originalName = "Document";
+            }
+            originalName = originalName.replaceAll("[^a-zA-Z0-9.\\-]", "_");
 
             String url = "https://api.lyuni-gest.com/api/medias/"
                     + saved.getIdMedia()
-                    + "/fichier";
+                    + "/fichier/" + originalName;
 
             saved.setFichierUrl(url);
             return mediasRepository.save(saved);

@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import jakarta.persistence.*;
 import lombok.*;
 
+@Entity
 @Data
 public class Alerte {
 

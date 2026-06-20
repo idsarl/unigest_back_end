@@ -52,9 +52,9 @@ public class AuthController {
                     .body(Map.of("message", "Identifiants incorrects"));
         }
 
-        Utilisateur user = userRepository.findByEmailOrTelephone(
-                loginRequest.getLogin(), loginRequest.getLogin()
-        ).orElseThrow();
+                Utilisateur user = userRepository.findByEmailOrTelephone(
+                        loginRequest.getLogin(), loginRequest.getLogin()
+                ).orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
         // Seuls ADMIN, ENSEIGNANT et COMPTABLE peuvent se connecter
         if (user.getRole() != Role.ADMIN

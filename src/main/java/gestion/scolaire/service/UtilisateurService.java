@@ -3,6 +3,7 @@ package gestion.scolaire.service;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import gestion.scolaire.model.Affectation;
@@ -14,8 +15,10 @@ import gestion.scolaire.model.Utilisateur;
 import gestion.scolaire.repository.EnseignantRepository;
 import gestion.scolaire.repository.ParentRepository;
 import gestion.scolaire.repository.UtilisateurRepository;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class UtilisateurService {
 
     @Autowired
@@ -26,6 +29,9 @@ public class UtilisateurService {
 
     @Autowired
     private EnseignantRepository enseignantRepository;
+    
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     // Ajouter un utilisateur générique
  public Utilisateur ajouterUtilisateur(Utilisateur user){
@@ -53,8 +59,14 @@ public class UtilisateurService {
         if(email != null) user.setEmail(email);
         if(telephone != null) user.setTelephone(telephone);
         if(actif != null) user.setActif(actif);
+        if(password != null && !password.isEmpty()) {
+            log.info("Modification du mot de passe pour l'utilisateur ID {} ({})", id, user.getEmail());
+            user.setPassword(passwordEncoder.encode(password));
+        }
 
-        return utilisateurRepository.save(user);
+        Utilisateur savedUser = utilisateurRepository.save(user);
+        log.info("Utilisateur mis à jour avec succès !");
+        return savedUser;
     }
 
     // Supprimer un utilisateur

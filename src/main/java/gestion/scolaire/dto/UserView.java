@@ -1,15 +1,16 @@
 package gestion.scolaire.dto;
 
-import org.springframework.beans.factory.annotation.Value;
 import gestion.scolaire.model.Role;
+
+import org.springframework.beans.factory.annotation.Value;
 
 public interface UserView {
 
     @Value("#{target.id}")
-    Long getId();
+    Long getIdUser();
 
     @Value("#{target.id}")
-    Long getIdUser();
+    Long getId();
 
     @Value("#{target.email}")
     String getUsername();
@@ -18,8 +19,11 @@ public interface UserView {
 
     String getEmail();
 
-    @Value("#{target instanceof T(gestion.scolaire.model.Parent) ? target.adresse : (target instanceof T(gestion.scolaire.model.Enseignant) ? target.adresse : null)}")
+    @Value("#{target.class.simpleName == 'Enseignant' ? target.adresse : (target.class.simpleName == 'Parent' ? target.adresse : null)}")
     String getAdresse();
+
+    @Value("#{null}")
+    String getDateEnregistrement();
 
     Role getRole();
 }

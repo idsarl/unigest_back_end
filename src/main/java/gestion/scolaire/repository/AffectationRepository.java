@@ -23,4 +23,13 @@ public interface AffectationRepository extends JpaRepository<Affectation, Long> 
 
     // List<Affectation> findByMatiere(Matiere matiere);
 
+    @org.springframework.data.jpa.repository.Query("SELECT a FROM Affectation a JOIN a.matieres m WHERE a.classe.id = :classeId AND a.enseignant.id = :enseignantId AND m.nom = :matiereNom")
+    Optional<Affectation> findByClasseAndEnseignantAndMatiere(@Param("classeId") Long classeId, @Param("enseignantId") Long enseignantId, @Param("matiereNom") String matiereNom);
+
+    List<Affectation> findByAnneeScolaireId(Long anneeId);
+
+    List<Affectation> findByEnseignantIdAndAnneeScolaireId(Long enseignantId, Long anneeId);
+
+    List<Affectation> findByClasseIdAndAnneeScolaireId(Long classeId, Long anneeId);
+
 }

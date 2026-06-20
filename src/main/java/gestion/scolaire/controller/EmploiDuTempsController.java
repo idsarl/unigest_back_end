@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import gestion.scolaire.model.EmploiDuTemps;
@@ -62,6 +63,13 @@ public class EmploiDuTempsController {
     @GetMapping("/classe/{classeId}")
     public ResponseEntity<?> getByClasse(@PathVariable Long classeId) {
         return ResponseEntity.ok(service.getByClasse(classeId));
+    }
+
+    @GetMapping("/enseignant/{enseignantId}/date")
+    public ResponseEntity<List<EmploiDuTemps>> getByEnseignantAndDate(
+            @PathVariable Long enseignantId,
+            @RequestParam LocalDate date) {
+        return ResponseEntity.ok(service.getByEnseignantAndDate(enseignantId, date));
     }
 
     @GetMapping("/export/pdf/{classeId}")

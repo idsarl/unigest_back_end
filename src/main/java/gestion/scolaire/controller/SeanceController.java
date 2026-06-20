@@ -5,7 +5,6 @@ import gestion.scolaire.model.Seance;
 import gestion.scolaire.service.SeanceService;
 
 import java.time.LocalDate;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,9 +23,12 @@ public class SeanceController {
         @Autowired
         private SeanceService seanceService;
 
+        @Autowired
+        private gestion.scolaire.service.SeanceScheduler seanceScheduler;
+
         @Operation(summary = "Démarrer une séance", description = "Crée une nouvelle séance pour une affectation")
         @PostMapping("/demarrer")
-        public ResponseEntity<Seance> demarrerSeance(
+        public ResponseEntity<gestion.scolaire.dto.SeanceDTO> demarrerSeance(
                         @Parameter(description = "ID de l'affectation") @RequestParam Long affectationId,
                         @RequestParam String matiere) {
 
@@ -36,7 +38,7 @@ public class SeanceController {
 
         @Operation(summary = "Terminer une séance")
         @PutMapping("/{seanceId}/terminer")
-        public ResponseEntity<Seance> terminerSeance(
+        public ResponseEntity<gestion.scolaire.dto.SeanceDTO> terminerSeance(
                         @PathVariable Long seanceId) {
 
                 return ResponseEntity.ok(
@@ -48,14 +50,48 @@ public class SeanceController {
                 return seanceService.getSeancesDuJour();
         } 
 
-        @Operation(summary = "Récupérer les séances par date")
-        @GetMapping("/date")
-        public ResponseEntity<List<Seance>> getSeancesParDate(
-                        @RequestParam LocalDate date) {
-
+        @Operation(summary = "Récupérer les séances du jour d'un enseignant")
+        @GetMapping("/enseignant/{enseignantId}/jour")
+        public ResponseEntity<List<SeanceDTO>> getSeancesDuJourParEnseignant(
+                        @PathVariable Long enseignantId) {
                 return ResponseEntity.ok(
-                                seanceService.getSeancesParDate(date));
+                                seanceService.getSeancesDuJourParEnseignant(enseignantId));
         }
+
+        @Operation(summary = "Récupérer le nombre d'absences lors des séances du jour d'un enseignant")
+        @GetMapping("/enseignant/{enseignantId}/absences/jour")
+        public ResponseEntity<Map<String, Object>> getAbsencesDuJourParEnseignant(
+                        @PathVariable Long enseignantId) {
+                return ResponseEntity.ok(
+                                seanceService.getAbsencesDuJourParEnseignant(enseignantId));
+        }
+
+        @Operation(summary = "Récupérer la moyenne de la matière en cours ou de la prochaine matière d'un enseignant")
+        @GetMapping("/enseignant/{enseignantId}/moyenne-matiere/encours")
+        public ResponseEntity<Map<String, Object>> getMoyenneMatiereEnCoursParEnseignant(
+                        @PathVariable Long enseignantId) {
+                Map<String, Object> moyenne = seanceService.getMoyenneMatiereEnCoursParEnseignant(enseignantId);
+                return ResponseEntity.ok(moyenne);
+        }
+
+        @Operation(summary = "Récupérer les séances par date")
+    @GetMapping("/date")
+    public ResponseEntity<List<SeanceDTO>> getSeancesParDate(
+            @RequestParam LocalDate date) {
+
+        return ResponseEntity.ok(
+                seanceService.getSeancesParDate(date));
+    }
+
+    @Operation(summary = "Récupérer les séances par enseignant et date")
+    @GetMapping("/enseignant/{enseignantId}/date")
+    public ResponseEntity<List<SeanceDTO>> getSeancesParEnseignantEtDate(
+            @PathVariable Long enseignantId,
+            @RequestParam LocalDate date) {
+
+        return ResponseEntity.ok(
+                seanceService.getSeancesParEnseignantEtDate(enseignantId, date));
+    }
 
         @Operation(summary = "Récupérer les séances par affectation")
         @GetMapping("/affectation/{affectationId}")
@@ -86,45 +122,25 @@ public class SeanceController {
 
         @Operation(summary = "Récupérer toutes les séances")
         @GetMapping
-        public ResponseEntity<List<Map<String, Object>>> getSeances() {
+        public ResponseEntity<List<Seance>> getSeances() {
 
                 return ResponseEntity.ok(
-                                seanceService.getSeances()
-                                                .stream()
-                                                .map(this::toMobileResponse)
-                                                .toList());
+                                seanceService.getSeances());
         }
 
-        private Map<String, Object> toMobileResponse(Seance seance) {
-                Map<String, Object> response = new LinkedHashMap<>();
-                response.put("id", seance.getId());
-                response.put("date", seance.getDate());
-                response.put("heureDebut", seance.getHeureDebut());
-                response.put("heureFin", seance.getHeureFin());
-                response.put("statut", seance.getStatut());
-                response.put("matiere", seance.getMatiere());
-
-                Map<String, Object> affectation = new LinkedHashMap<>();
-                if (seance.getAffectation() != null) {
-                        affectation.put("id", seance.getAffectation().getId());
-
-                        if (seance.getAffectation().getClasse() != null) {
-                                Map<String, Object> classe = new LinkedHashMap<>();
-                                classe.put("id", seance.getAffectation().getClasse().getId());
-                                classe.put("nom", seance.getAffectation().getClasse().getNom());
-                                affectation.put("classe", classe);
-                        }
-
-                        if (seance.getAffectation().getEnseignant() != null) {
-                                Map<String, Object> enseignant = new LinkedHashMap<>();
-                                enseignant.put("id", seance.getAffectation().getEnseignant().getId());
-                                enseignant.put("nom", seance.getAffectation().getEnseignant().getNom());
-                                enseignant.put("prenom", seance.getAffectation().getEnseignant().getPrenom());
-                                affectation.put("enseignant", enseignant);
-                        }
-                }
-                response.put("affectation", affectation);
-
-                return response;
+        @Operation(summary = "Générer manuellement les séances du jour")
+        @PostMapping("/generer-jour")
+        public ResponseEntity<String> genererSeancesDuJour() {
+                seanceScheduler.genererSeancesDuJour();
+                return ResponseEntity.ok("Génération des séances terminée !");
         }
+
+        @Operation(summary = "Récupérer le temps restant avant la prochaine séance du jour pour un enseignant")
+        @GetMapping("/enseignant/{enseignantId}/prochaine")
+        public ResponseEntity<Map<String, Object>> getTempsAvantProchaineSeanceParEnseignant(
+                        @PathVariable Long enseignantId) {
+                Map<String, Object> prochaine = seanceService.getTempsAvantProchaineSeanceParEnseignant(enseignantId);
+                return ResponseEntity.ok(prochaine);
+        }
+
 }

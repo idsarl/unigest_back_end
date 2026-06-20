@@ -6,9 +6,11 @@ import lombok.Data;
 public class SeanceDTO {
 
     private Long id;
+    private Long affectationId;
     private String professeur;
     private String matiere;
     private String classe;
+    private Long classeId;
     private String filiere;
     private String heureDebut;
     private String heureFin;

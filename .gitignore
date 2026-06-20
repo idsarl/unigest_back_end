@@ -32,3 +32,15 @@ build/
 ### VS Code ###
 .vscode/
 .DS_Store
+
+### Scripts de génération de données ###
+add_seances.js
+fix_dates.js
+generate_data.js
+generate_data_full.js
+generate_data.py
+payload.json
+update_seances.js
+
+### Fichiers de test ###
+src/main/resources/data_insert.sql
