@@ -38,6 +38,12 @@ public interface AppelRepository extends JpaRepository<Appel, Long> {
             @Param("statut") StatutPresence statut
     );
 
+    @Query("SELECT a FROM Appel a WHERE a.seance.affectation.classe.id = :classeId AND a.seance.anneeScolaire.id = :anneeId ORDER BY a.seance.date DESC, a.etudiant.nom ASC")
+    List<Appel> findByClasseIdAndAnneeId(
+            @Param("classeId") Long classeId,
+            @Param("anneeId") Long anneeId
+    );
+
     @Query("SELECT count(a) FROM Appel a WHERE a.seance.affectation.classe.id = :classeId AND a.seance.anneeScolaire.active = true AND a.statut = :statut")
     long countByClasseIdAndStatut(
             @Param("classeId") Long classeId,

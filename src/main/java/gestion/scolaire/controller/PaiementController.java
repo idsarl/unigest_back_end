@@ -5,6 +5,7 @@ import gestion.scolaire.model.Inscription;
 import gestion.scolaire.model.ModePaiement;
 import gestion.scolaire.model.Paiement;
 import gestion.scolaire.repository.InscriptionRepository;
+import gestion.scolaire.service.HistoriquePaiementsPdfService;
 import gestion.scolaire.service.PaiementService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,6 +15,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +29,8 @@ public class PaiementController {
     private PaiementService paiementService;
     @Autowired
     private InscriptionRepository inscriptionRepository;
+    @Autowired
+    private HistoriquePaiementsPdfService historiquePaiementsPdfService;
 
 
     @Operation(summary = "Effectuer un paiement",
@@ -129,6 +134,21 @@ public class PaiementController {
         return ResponseEntity.ok(
                 paiementService.getHistoriquePaiementsEtudiant(etudiantId, classeId, anneeId)
         );
+    }
+
+    @Operation(summary = "Export PDF historique paiements d'un étudiant")
+    @GetMapping("/etudiant/{etudiantId}/export-pdf")
+    public ResponseEntity<byte[]> exporterHistoriquePaiements(
+            @PathVariable Long etudiantId,
+            @RequestParam(required = false) Long classeId,
+            @RequestParam(required = false) Long anneeId) {
+
+        byte[] pdf = historiquePaiementsPdfService.generer(etudiantId, classeId, anneeId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"paiements-etudiant-" + etudiantId + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
     }
 
 }

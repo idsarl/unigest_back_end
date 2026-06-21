@@ -2,7 +2,8 @@ package gestion.scolaire.controller;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,6 +11,7 @@ import gestion.scolaire.dto.AppelBatchRequest;
 import gestion.scolaire.dto.ClasseAttendanceSummaryDTO;
 import gestion.scolaire.model.Appel;
 import gestion.scolaire.model.StatutPresence;
+import gestion.scolaire.service.AbsenceClassePdfService;
 import gestion.scolaire.service.AppelService;
 import lombok.RequiredArgsConstructor;
 
@@ -18,7 +20,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AppelController {
 
-        private final AppelService appelService;
+        private final AppelService          appelService;
+        private final AbsenceClassePdfService absenceClassePdfService;
 
         /**
          * 1️⃣ Faire l'appel (marquer présence/absence/retard)
@@ -192,5 +195,21 @@ public class AppelController {
 
                 return ResponseEntity.ok(
                                 "Tous les appels de la séance ont été supprimés");
+        }
+
+        /**
+         * 1️⃣2️⃣ Export PDF absences/retards d'une classe
+         */
+        @GetMapping("/classe/{classeId}/export-pdf")
+        public ResponseEntity<byte[]> exporterAbsencesClasse(
+                        @PathVariable Long classeId,
+                        @RequestParam Long anneeId) {
+
+                byte[] pdf = absenceClassePdfService.generer(classeId, anneeId);
+                return ResponseEntity.ok()
+                                .header(HttpHeaders.CONTENT_DISPOSITION,
+                                        "attachment; filename=\"absences-classe-" + classeId + ".pdf\"")
+                                .contentType(MediaType.APPLICATION_PDF)
+                                .body(pdf);
         }
 }

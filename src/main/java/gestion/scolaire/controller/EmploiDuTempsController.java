@@ -74,13 +74,28 @@ public class EmploiDuTempsController {
 
     @GetMapping("/export/pdf/{classeId}")
     public ResponseEntity<byte[]> exportPdf(@PathVariable Long classeId) {
-
         byte[] pdf = service.exportPdf(classeId);
-
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=emploi.pdf")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"emploi-du-temps.pdf\"")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
+    }
+
+    @GetMapping("/export/excel/{classeId}")
+    public ResponseEntity<byte[]> exportExcel(@PathVariable Long classeId) {
+        byte[] excel = service.exportExcel(classeId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"emploi-du-temps.xlsx\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(excel);
+    }
+
+    @GetMapping("/export/word/{classeId}")
+    public ResponseEntity<byte[]> exportWord(@PathVariable Long classeId) {
+        byte[] word = service.exportWord(classeId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"emploi-du-temps.docx\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+                .body(word);
     }
 }

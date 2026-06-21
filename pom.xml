@@ -44,7 +44,7 @@
 </dependency>
 		<!-- pdf gestion  -->
 
-		 <!-- excel  -->
+		 <!-- excel / word  -->
 		<dependency>
     <groupId>org.apache.poi</groupId>
     <artifactId>poi-ooxml</artifactId>
@@ -56,7 +56,8 @@
     <artifactId>poi</artifactId>
     <version>5.2.5</version>
 </dependency>
-		 <!-- excel  -->
+		 <!-- excel / word  -->
+
 
 		<!-- spring-boot-starter-data-jdbc : requis pour la détection JPA JOINED inheritance avec Hibernate 7 -->
 		<dependency>

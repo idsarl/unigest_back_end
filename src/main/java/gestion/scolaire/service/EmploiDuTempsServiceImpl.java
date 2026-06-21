@@ -2,7 +2,6 @@ package gestion.scolaire.service;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,13 +12,13 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.apache.poi.xwpf.usermodel.*;
 import org.springframework.stereotype.Service;
 
-// Utilisation de OpenPDF (plus compatible avec Spring Boot récent) 
-// ou iText (selon ta préférence, les imports ci-dessous sont pour iText)
-// REMPLACE CEUX-LÀ
 import com.lowagie.text.Document;
 import com.lowagie.text.PageSize;
 import com.lowagie.text.Paragraph;
@@ -35,7 +34,10 @@ import java.awt.Color;
 import gestion.scolaire.dto.TypeEmploi;
 import gestion.scolaire.model.AnneeScolaire;
 import gestion.scolaire.model.EmploiDuTemps;
+import gestion.scolaire.repository.ClasseRepository;
 import gestion.scolaire.repository.EmploiDuTempsRepository;
+import gestion.scolaire.repository.EnseignantRepository;
+import gestion.scolaire.repository.MatiereRepository;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -44,41 +46,54 @@ public class EmploiDuTempsServiceImpl implements EmploiDuTempsService {
 
     private final EmploiDuTempsRepository repository;
     private final AnneeScolaireService anneeScolaireService;
+    private final ClasseRepository classeRepository;
+    private final EnseignantRepository enseignantRepository;
+    private final MatiereRepository matiereRepository;
 
-   
-public EmploiDuTemps save(EmploiDuTemps dto) {
-    AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
-    EmploiDuTemps em = new EmploiDuTemps();
-    em.setActif(dto.isActif());
-    em.setAnneeScolaire(anneeActive);
-    em.setType(dto.getType());
-    em.setJours(dto.getJours());
-    em.setHeureDebut(dto.getHeureDebut());
-    em.setHeureFin(dto.getHeureFin());
-    em.setDateDebut(dto.getDateDebut());
-    em.setDateFin(dto.getDateFin());
-    em.setPeriodicite(dto.getPeriodicite());
-    em.setDescription(dto.getDescription());
-    em.setCouleur(dto.getCouleur());
+    @Override
+    public EmploiDuTemps save(EmploiDuTemps dto) {
+        AnneeScolaire anneeActive = anneeScolaireService.getAnneeActive();
+        EmploiDuTemps em = new EmploiDuTemps();
+        em.setActif(dto.isActif());
+        em.setAnneeScolaire(anneeActive);
+        em.setType(dto.getType());
+        em.setJours(dto.getJours());
+        em.setHeureDebut(dto.getHeureDebut());
+        em.setHeureFin(dto.getHeureFin());
+        em.setDateDebut(dto.getDateDebut());
+        em.setDateFin(dto.getDateFin());
+        em.setPeriodicite(dto.getPeriodicite());
+        em.setDescription(dto.getDescription());
+        em.setCouleur(dto.getCouleur());
 
-    // Champs requis seulement pour les COURS
-    if (dto.getType() == TypeEmploi.COURS) {
-        em.setClasse(dto.getClasse());
-        em.setEnseignant(dto.getEnseignant());
-        em.setMatiere(dto.getMatiere());
-        verifierConflit(dto);
+        if (dto.getType() == TypeEmploi.COURS) {
+            if (dto.getClasse() != null && dto.getClasse().getId() != null)
+                em.setClasse(classeRepository.getReferenceById(dto.getClasse().getId()));
+            if (dto.getEnseignant() != null && dto.getEnseignant().getId() != null)
+                em.setEnseignant(enseignantRepository.getReferenceById(dto.getEnseignant().getId()));
+            if (dto.getMatiere() != null && dto.getMatiere().getId() != null)
+                em.setMatiere(matiereRepository.getReferenceById(dto.getMatiere().getId()));
+            verifierConflit(em);
+        }
+
+        return repository.save(em);
     }
-
-    return repository.save(em);
-}
- 
 
     @Override
     public EmploiDuTemps update(Long id, EmploiDuTemps dto) {
         EmploiDuTemps old = getById(id);
-        old.setClasse(dto.getClasse());
-        old.setEnseignant(dto.getEnseignant());
-        old.setMatiere(dto.getMatiere());
+        if (dto.getClasse() != null && dto.getClasse().getId() != null)
+            old.setClasse(classeRepository.getReferenceById(dto.getClasse().getId()));
+        else
+            old.setClasse(null);
+        if (dto.getEnseignant() != null && dto.getEnseignant().getId() != null)
+            old.setEnseignant(enseignantRepository.getReferenceById(dto.getEnseignant().getId()));
+        else
+            old.setEnseignant(null);
+        if (dto.getMatiere() != null && dto.getMatiere().getId() != null)
+            old.setMatiere(matiereRepository.getReferenceById(dto.getMatiere().getId()));
+        else
+            old.setMatiere(null);
         old.setJours(dto.getJours());
         old.setHeureDebut(dto.getHeureDebut());
         old.setHeureFin(dto.getHeureFin());
@@ -87,6 +102,7 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
         old.setDateFin(dto.getDateFin());
         old.setDescription(dto.getDescription());
         old.setType(dto.getType());
+        old.setCouleur(dto.getCouleur());
         verifierConflit(old);
         return repository.save(old);
     }
@@ -123,107 +139,263 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
 
     @Override
     public List<EmploiDuTemps> getByEnseignantAndDate(Long enseignantId, LocalDate date) {
-        System.out.println("=== getByEnseignantAndDate(" + enseignantId + ", " + date + ") ===");
         gestion.scolaire.dto.JourSemaine jourSemaine = gestion.scolaire.dto.JourSemaine.values()[date.getDayOfWeek().getValue() - 1];
-        System.out.println("Jour de la semaine: " + jourSemaine);
-        
-        // First, log all emplois for this enseignant
-        List<EmploiDuTemps> allForEnseignant = repository.findByEnseignantId(enseignantId);
-        System.out.println("Tous les emplois pour cet enseignant: " + allForEnseignant.size());
-        for (EmploiDuTemps e : allForEnseignant) {
-            System.out.println("- ID: " + e.getId() + 
-                               ", Matière: " + (e.getMatiere() != null ? e.getMatiere().getNom() : "null") + 
-                               ", Classe: " + (e.getClasse() != null ? e.getClasse().getNom() : "null") + 
-                               ", Jours: " + e.getJours() + 
-                               ", Heure début: " + e.getHeureDebut() + 
-                               ", Heure fin: " + e.getHeureFin() + 
-                               ", Date début: " + e.getDateDebut() + 
-                               ", Date fin: " + e.getDateFin() + 
-                               ", Actif: " + e.isActif());
-        }
-        
-        List<EmploiDuTemps> result = repository.findAllValidesByDateAndJour(enseignantId, date, jourSemaine);
-        System.out.println("Résultat après filtrage: " + result.size() + " emplois du temps trouvés");
-        return result;
+        return repository.findAllValidesByDateAndJour(enseignantId, date, jourSemaine);
     }
 
     private void verifierConflit(EmploiDuTemps dto) {
-
-        if (dto.getType() != TypeEmploi.COURS) {
-            return;
-        }
+        if (dto.getType() != TypeEmploi.COURS || dto.getClasse() == null) return;
 
         List<EmploiDuTemps> emplois = repository.findByClasseId(dto.getClasse().getId());
 
         boolean conflit = emplois.stream()
-
-                .filter(e -> dto.getId() == null
-                        || !e.getId().equals(dto.getId()))
-
+                .filter(e -> dto.getId() == null || !e.getId().equals(dto.getId()))
                 .filter(e -> e.getType() == TypeEmploi.COURS)
-
                 .anyMatch(e ->
-
-                e.getJours().stream()
-                        .anyMatch(dto.getJours()::contains)
-
-                        && dto.getHeureDebut().isBefore(e.getHeureFin())
-
-                        && dto.getHeureFin().isAfter(e.getHeureDebut())
-
+                        e.getJours().stream().anyMatch(dto.getJours()::contains)
+                                && dto.getHeureDebut().isBefore(e.getHeureFin())
+                                && dto.getHeureFin().isAfter(e.getHeureDebut())
                 );
 
         if (conflit) {
-            throw new RuntimeException(
-                    "Conflit horaire détecté pour cette classe");
+            throw new RuntimeException("Conflit horaire détecté pour cette classe");
         }
     }
+
+    // ─── Export Excel ─────────────────────────────────────────────────────────
 
     @Override
     public byte[] exportExcel(Long classeId) {
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            List<EmploiDuTemps> emplois = repository.findByClasseId(classeId);
+            List<EmploiDuTemps> emplois = repository.findByClasseId(classeId)
+                    .stream().filter(EmploiDuTemps::isActif).collect(Collectors.toList());
+
+            String nomClasse = emplois.stream()
+                    .filter(e -> e.getClasse() != null)
+                    .map(e -> e.getClasse().getNom())
+                    .findFirst().orElse("Classe");
+
             Sheet sheet = workbook.createSheet("Emploi du temps");
 
-            // Style d'entête
-            CellStyle headerStyle = workbook.createCellStyle();
-            org.apache.poi.ss.usermodel.Font font = workbook.createFont();
-            font.setBold(true);
-            headerStyle.setFont(font);
-            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            // Styles
+            XSSFColor indigoColor = new XSSFColor(new java.awt.Color(79, 70, 229), null);
+            XSSFColor whiteColor  = new XSSFColor(new java.awt.Color(255, 255, 255), null);
 
-            String[] columns = { "Jour", "Heure Début", "Heure Fin", "Matière", "Enseignant", "Salle" };
-            Row headerRow = sheet.createRow(0);
+            XSSFCellStyle headerStyle = (XSSFCellStyle) workbook.createCellStyle();
+            XSSFFont headerFont = (XSSFFont) workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(whiteColor);
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(indigoColor);
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN);
+
+            CellStyle dataStyle = workbook.createCellStyle();
+            dataStyle.setBorderBottom(BorderStyle.THIN);
+            dataStyle.setBorderRight(BorderStyle.THIN);
+            dataStyle.setAlignment(HorizontalAlignment.CENTER);
+            dataStyle.setWrapText(true);
+
+            // Title row
+            Row titleRow = sheet.createRow(0);
+            Cell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue("EMPLOI DU TEMPS — " + nomClasse);
+            CellStyle titleStyle = workbook.createCellStyle();
+            org.apache.poi.ss.usermodel.Font titleFont = workbook.createFont();
+            titleFont.setBold(true);
+            titleFont.setFontHeightInPoints((short) 13);
+            titleStyle.setFont(titleFont);
+            titleCell.setCellStyle(titleStyle);
+            sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(0, 0, 0, 5));
+
+            // Header row
+            String[] columns = {"Jour(s)", "Heure Début", "Heure Fin", "Matière", "Enseignant", "Type"};
+            Row headerRow = sheet.createRow(1);
             for (int i = 0; i < columns.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(columns[i]);
                 cell.setCellStyle(headerStyle);
             }
 
-            int rowIdx = 1;
+            // Data rows
+            int rowIdx = 2;
             for (EmploiDuTemps e : emplois) {
                 Row row = sheet.createRow(rowIdx++);
-                row.createCell(0)
-                        .setCellValue(
-                                e.getJours()
-                                        .stream()
-                                        .map(Enum::name)
-                                        .reduce((a, b) -> a + ", " + b)
-                                        .orElse(""));
-                row.createCell(1).setCellValue(e.getHeureDebut().toString());
-                row.createCell(2).setCellValue(e.getHeureFin().toString());
-                row.createCell(3).setCellValue(e.getMatiere().getNom());
-                row.createCell(4).setCellValue(e.getEnseignant().getNom() + " " + e.getEnseignant().getPrenom());
+
+                Cell joursCell = row.createCell(0);
+                joursCell.setCellValue(e.getJours().stream()
+                        .map(j -> j.name().charAt(0) + j.name().substring(1).toLowerCase())
+                        .reduce((a, b) -> a + ", " + b).orElse(""));
+                joursCell.setCellStyle(dataStyle);
+
+                Cell debutCell = row.createCell(1);
+                debutCell.setCellValue(e.getHeureDebut() != null ? e.getHeureDebut().toString().substring(0, 5) : "");
+                debutCell.setCellStyle(dataStyle);
+
+                Cell finCell = row.createCell(2);
+                finCell.setCellValue(e.getHeureFin() != null ? e.getHeureFin().toString().substring(0, 5) : "");
+                finCell.setCellStyle(dataStyle);
+
+                Cell matCell = row.createCell(3);
+                matCell.setCellValue(e.getMatiere() != null ? e.getMatiere().getNom() : "—");
+                matCell.setCellStyle(dataStyle);
+
+                Cell ensCell = row.createCell(4);
+                ensCell.setCellValue(e.getEnseignant() != null ?
+                        e.getEnseignant().getNom() + " " + e.getEnseignant().getPrenom() : "—");
+                ensCell.setCellStyle(dataStyle);
+
+                Cell typeCell = row.createCell(5);
+                typeCell.setCellValue(e.getType() != null ? e.getType().name() : "COURS");
+                typeCell.setCellStyle(dataStyle);
             }
 
-            for (int i = 0; i < columns.length; i++)
-                sheet.autoSizeColumn(i);
+            for (int i = 0; i < columns.length; i++) sheet.autoSizeColumn(i);
             workbook.write(out);
             return out.toByteArray();
         } catch (Exception e) {
-            throw new RuntimeException("Erreur Excel: " + e.getMessage());
+            throw new RuntimeException("Erreur Excel: " + e.getMessage(), e);
         }
     }
+
+    // ─── Export Word ──────────────────────────────────────────────────────────
+
+    @Override
+    public byte[] exportWord(Long classeId) {
+        try (XWPFDocument doc = new XWPFDocument();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+
+            List<EmploiDuTemps> emplois = repository.findByClasseId(classeId)
+                    .stream().filter(EmploiDuTemps::isActif).collect(Collectors.toList());
+            emplois.addAll(repository.findRecreationsGlobales());
+
+            String nomClasse = emplois.stream()
+                    .filter(e -> e.getClasse() != null)
+                    .map(e -> e.getClasse().getNom())
+                    .findFirst().orElse("Classe");
+
+            // Title
+            XWPFParagraph titlePara = doc.createParagraph();
+            titlePara.setAlignment(ParagraphAlignment.CENTER);
+            XWPFRun titleRun = titlePara.createRun();
+            titleRun.setBold(true);
+            titleRun.setFontSize(14);
+            titleRun.setText("EMPLOI DU TEMPS — " + nomClasse);
+
+            XWPFParagraph datePara = doc.createParagraph();
+            datePara.setAlignment(ParagraphAlignment.CENTER);
+            XWPFRun dateRun = datePara.createRun();
+            dateRun.setFontSize(9);
+            dateRun.setColor("888888");
+            dateRun.setText("Généré le " + LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+
+            doc.createParagraph(); // spacing
+
+            // Collect time slots
+            TreeMap<LocalTime, LocalTime> slots = new TreeMap<>();
+            emplois.forEach(e -> {
+                if (e.getHeureDebut() != null && e.getHeureFin() != null)
+                    slots.put(e.getHeureDebut(), e.getHeureFin());
+            });
+
+            if (slots.isEmpty()) {
+                doc.createParagraph().createRun().setText("Aucun cours configuré pour cette classe.");
+                doc.write(out);
+                return out.toByteArray();
+            }
+
+            String[] jours = {"LUNDI", "MARDI", "MERCREDI", "JEUDI", "VENDREDI", "SAMEDI"};
+            String[] joursLabels = {"Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"};
+
+            Map<String, EmploiDuTemps> cellMap = new LinkedHashMap<>();
+            emplois.forEach(e -> {
+                if (e.getJours() != null)
+                    e.getJours().forEach(j -> cellMap.put(j.name() + "-" + e.getHeureDebut(), e));
+            });
+
+            // Table: header row + one row per slot, 7 columns (Horaire + 6 jours)
+            XWPFTable table = doc.createTable(slots.size() + 1, 7);
+
+            // Header row
+            XWPFTableRow header = table.getRow(0);
+            wordCell(header.getCell(0), "Horaire", true, "4F46E5", "FFFFFF", 9);
+            for (int i = 0; i < 6; i++)
+                wordCell(header.getCell(i + 1), joursLabels[i], true, "4F46E5", "FFFFFF", 9);
+
+            // Data rows
+            int rowIdx = 1;
+            for (Map.Entry<LocalTime, LocalTime> slot : slots.entrySet()) {
+                XWPFTableRow row = table.getRow(rowIdx++);
+                String heureDebut = slot.getKey().toString().substring(0, 5);
+                String heureFin   = slot.getValue().toString().substring(0, 5);
+                wordCell(row.getCell(0), heureDebut + "\n" + heureFin, true, "F1F5F9", "475569", 8);
+
+                for (int i = 0; i < 6; i++) {
+                    EmploiDuTemps cours = cellMap.get(jours[i] + "-" + slot.getKey());
+                    XWPFTableCell cell = row.getCell(i + 1);
+
+                    if (cours == null) {
+                        wordCell(cell, "—", false, "FFFFFF", "CBD5E1", 8);
+                    } else if (cours.getType() == TypeEmploi.PAUSE || cours.getType() == TypeEmploi.RECREATION) {
+                        String lbl = cours.getType() == TypeEmploi.RECREATION ? "Récréation" : "Pause";
+                        wordCell(cell, lbl, true, "FEF3C7", "92400E", 8);
+                    } else {
+                        String mat = cours.getMatiere() != null ? cours.getMatiere().getNom() : "—";
+                        String ens = cours.getEnseignant() != null ?
+                                cours.getEnseignant().getPrenom() + " " + cours.getEnseignant().getNom() : "";
+                        wordCellCours(cell, mat, ens);
+                    }
+                }
+            }
+
+            doc.write(out);
+            return out.toByteArray();
+
+        } catch (Exception e) {
+            throw new RuntimeException("Erreur Word: " + e.getMessage(), e);
+        }
+    }
+
+    private void wordCell(XWPFTableCell cell, String text, boolean bold,
+                          String bgColor, String fontColor, int fontSize) {
+        cell.setColor(bgColor);
+        XWPFParagraph para = cell.getParagraphs().get(0);
+        para.setAlignment(ParagraphAlignment.CENTER);
+        String[] lines = text.split("\n");
+        for (int i = 0; i < lines.length; i++) {
+            XWPFRun run = para.createRun();
+            if (i > 0) run.addBreak();
+            run.setText(lines[i]);
+            run.setBold(bold);
+            run.setFontSize(fontSize);
+            run.setColor(fontColor);
+        }
+    }
+
+    private void wordCellCours(XWPFTableCell cell, String matiere, String enseignant) {
+        cell.setColor("E0E7FF");
+        XWPFParagraph para = cell.getParagraphs().get(0);
+        para.setAlignment(ParagraphAlignment.CENTER);
+
+        XWPFRun matRun = para.createRun();
+        matRun.setText(matiere);
+        matRun.setBold(true);
+        matRun.setFontSize(9);
+        matRun.setColor("1E1B4B");
+
+        if (enseignant != null && !enseignant.isBlank()) {
+            XWPFRun ensRun = para.createRun();
+            ensRun.addBreak();
+            ensRun.setText(enseignant);
+            ensRun.setBold(false);
+            ensRun.setFontSize(7);
+            ensRun.setColor("3730A3");
+        }
+    }
+
+    // ─── Export PDF ───────────────────────────────────────────────────────────
 
     @Override
     public byte[] exportPdf(Long classeId) {
@@ -238,10 +410,12 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
                             .filter(EmploiDuTemps::isActif).collect(Collectors.toList()));
             emplois.addAll(repository.findRecreationsGlobales());
 
-            String nomClasse = emplois.isEmpty() ? "" :
-                    (emplois.get(0).getClasse() != null ? emplois.get(0).getClasse().getNom() : "");
+            String nomClasse = emplois.stream()
+                    .filter(e -> e.getClasse() != null)
+                    .map(e -> e.getClasse().getNom())
+                    .findFirst().orElse("");
 
-            // ── Bandeau titre ──────────────────────────────────────────────
+            // Bandeau titre
             Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13, Color.WHITE);
             PdfPTable titleBar = new PdfPTable(1);
             titleBar.setWidthPercentage(100);
@@ -255,7 +429,7 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
             document.add(titleBar);
             document.add(new Paragraph(" "));
 
-            // ── Collecte des créneaux horaires uniques ─────────────────────
+            // Créneaux horaires uniques
             TreeMap<LocalTime, LocalTime> slots = new TreeMap<>();
             emplois.forEach(e -> {
                 if (e.getHeureDebut() != null && e.getHeureFin() != null)
@@ -268,7 +442,6 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
                 return out.toByteArray();
             }
 
-            // ── Carte de cellules : "JOUR-heureDebut" → emploi ────────────
             String[] jours = {"LUNDI","MARDI","MERCREDI","JEUDI","VENDREDI","SAMEDI"};
             Map<String, EmploiDuTemps> cellMap = new LinkedHashMap<>();
             emplois.forEach(e -> {
@@ -276,7 +449,7 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
                     e.getJours().forEach(j -> cellMap.put(j.name() + "-" + e.getHeureDebut(), e));
             });
 
-            // ── Grille : 1 col horaire + 6 jours ─────────────────────────
+            // Grille : 1 col horaire + 6 jours
             PdfPTable grid = new PdfPTable(7);
             grid.setWidthPercentage(100);
             grid.setWidths(new float[]{13f, 14.5f, 14.5f, 14.5f, 14.5f, 14.5f, 14.5f});
@@ -308,8 +481,8 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
                 hc.setHorizontalAlignment(Element.ALIGN_CENTER);
                 hc.setVerticalAlignment(Element.ALIGN_MIDDLE);
                 hc.setPadding(5);
-                Paragraph hp = new Paragraph(slot.getKey().toString(), sFont);
-                hp.add(new Phrase("\n" + slot.getValue().toString(), sFin));
+                Paragraph hp = new Paragraph(slot.getKey().toString().substring(0,5), sFont);
+                hp.add(new Phrase("\n" + slot.getValue().toString().substring(0,5), sFin));
                 hc.addElement(hp);
                 grid.addCell(hc);
 
@@ -318,13 +491,12 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
                     PdfPCell dc = new PdfPCell();
                     dc.setPadding(4); dc.setVerticalAlignment(Element.ALIGN_MIDDLE);
                     if (cours != null) {
-                        boolean isPause = cours.getType() == TypeEmploi.PAUSE
-                                || cours.getType() == TypeEmploi.RECREATION;
+                        boolean isPause = cours.getType() == TypeEmploi.PAUSE || cours.getType() == TypeEmploi.RECREATION;
                         if (isPause) {
                             dc.setBackgroundColor(new Color(254, 243, 199));
                             dc.setHorizontalAlignment(Element.ALIGN_CENTER);
-                            Font pauseLabel = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, new Color(146, 64, 14));
-                            Font pauseSub   = FontFactory.getFont(FontFactory.HELVETICA, 7,   new Color(180, 120, 50));
+                            Font pauseLabel = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, new Color(146,64,14));
+                            Font pauseSub   = FontFactory.getFont(FontFactory.HELVETICA, 7, new Color(180,120,50));
                             String label = cours.getType() == TypeEmploi.RECREATION ? "Recreation" : "Pause";
                             Paragraph cp = new Paragraph(label, pauseLabel);
                             if (cours.getDescription() != null && !cours.getDescription().isBlank())
@@ -355,7 +527,7 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
             document.add(new Paragraph(" "));
             Font footFont = FontFactory.getFont(FontFactory.HELVETICA, 7, new Color(148,163,184));
             Paragraph foot = new Paragraph(
-                    "Genere le " + LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")), footFont);
+                    "Généré le " + LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")), footFont);
             foot.setAlignment(Element.ALIGN_RIGHT);
             document.add(foot);
 
@@ -363,7 +535,7 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
             return out.toByteArray();
 
         } catch (Exception e) {
-            throw new RuntimeException("Erreur lors de la generation du PDF", e);
+            throw new RuntimeException("Erreur lors de la génération du PDF", e);
         }
     }
 
@@ -377,5 +549,4 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
                     Integer.parseInt(h.substring(4,6), 16));
         } catch (Exception e) { return fallback; }
     }
-
 }
