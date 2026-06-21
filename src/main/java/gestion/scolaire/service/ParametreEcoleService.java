@@ -94,9 +94,10 @@ public class ParametreEcoleService {
     public String calculerAppreciation(double moyenne) {
         return appreciationSeuilRepository.findAllByOrderBySeuilMinDesc()
                 .stream()
-                .filter(s -> moyenne >= s.getSeuilMin())
+                .filter(s -> moyenne >= s.getSeuilMin()
+                          && (s.getSeuilMax() == null || moyenne <= s.getSeuilMax()))
                 .findFirst()
                 .map(AppreciationSeuil::getLibelle)
-                .orElse("Très insuffisant");
+                .orElse("—");
     }
 }

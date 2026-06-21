@@ -17,8 +17,11 @@ public class AppreciationSeuil {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Moyenne minimale (incluse) pour déclencher cette appréciation */
+    /** Moyenne minimale (incluse) */
     private double seuilMin;
+
+    /** Moyenne maximale (incluse) — null = pas de borne supérieure */
+    private Double seuilMax;
 
     /** Texte affiché (ex: "Très bien", "Bien", "Insuffisant"…) */
     private String libelle;
