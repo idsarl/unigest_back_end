@@ -27,6 +27,7 @@ import com.lowagie.text.FontFactory;
 import java.awt.Color; // OpenPDF utilise souvent java.awt.Color pour les couleurs
 
 import gestion.scolaire.dto.TypeEmploi;
+import gestion.scolaire.dto.EmploiDuTempsAvecSeance;
 import gestion.scolaire.model.AnneeScolaire;
 import gestion.scolaire.model.EmploiDuTemps;
 import gestion.scolaire.repository.EmploiDuTempsRepository;
@@ -38,6 +39,8 @@ public class EmploiDuTempsServiceImpl implements EmploiDuTempsService {
 
     private final EmploiDuTempsRepository repository;
     private final AnneeScolaireService anneeScolaireService;
+    private final gestion.scolaire.repository.AffectationRepository affectationRepository;
+    private final gestion.scolaire.repository.SeanceRepository seanceRepository;
 
     // @Override
     // public EmploiDuTemps save(EmploiDuTemps dto) {
@@ -155,6 +158,34 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
         List<EmploiDuTemps> result = repository.findAllValidesByDateAndJour(enseignantId, date, jourSemaine);
         System.out.println("Résultat après filtrage: " + result.size() + " emplois du temps trouvés");
         return result;
+    }
+
+    @Override
+    public List<EmploiDuTempsAvecSeance> getByEnseignantAndDateAvecSeances(Long enseignantId, LocalDate date) {
+        List<EmploiDuTemps> emplois = getByEnseignantAndDate(enseignantId, date);
+        List<gestion.scolaire.model.Seance> seancesDuJour = seanceRepository.findByAffectationEnseignantIdAndDate(enseignantId, date);
+
+        return emplois.stream().map(e -> {
+            EmploiDuTempsAvecSeance dto = new EmploiDuTempsAvecSeance();
+            dto.setEmploiDuTemps(e);
+            
+            if (e.getType() == TypeEmploi.COURS) {
+                // Find affectation
+                java.util.Optional<gestion.scolaire.model.Affectation> affectation = affectationRepository.findByClasseAndEnseignantAndMatiere(
+                        e.getClasse().getId(), enseignantId, e.getMatiere().getNom());
+                
+                affectation.ifPresent(a -> {
+                    dto.setAffectationId(a.getId());
+                    // Find seance matching this emploi du temps heureDebut
+                    java.util.Optional<gestion.scolaire.model.Seance> seanceOpt = seancesDuJour.stream()
+                        .filter(s -> s.getAffectation().getId().equals(a.getId()) && 
+                                     s.getHeureDebut().equals(e.getHeureDebut()))
+                        .findFirst();
+                    seanceOpt.ifPresent(dto::setSeance);
+                });
+            }
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     private void verifierConflit(EmploiDuTemps dto) {

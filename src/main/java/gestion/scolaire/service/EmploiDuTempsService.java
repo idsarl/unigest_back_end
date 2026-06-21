@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import gestion.scolaire.model.EmploiDuTemps;
+import gestion.scolaire.dto.EmploiDuTempsAvecSeance;
 
 public interface EmploiDuTempsService {
 
@@ -26,5 +27,7 @@ public interface EmploiDuTempsService {
     byte[] exportExcel(Long classeId);
 
     List<EmploiDuTemps> getByEnseignantAndDate(Long enseignantId, LocalDate date);
+
+    List<EmploiDuTempsAvecSeance> getByEnseignantAndDateAvecSeances(Long enseignantId, LocalDate date);
     
 }

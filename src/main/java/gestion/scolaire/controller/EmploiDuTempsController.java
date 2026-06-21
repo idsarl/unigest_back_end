@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import gestion.scolaire.dto.EmploiDuTempsAvecSeance;
 import gestion.scolaire.model.EmploiDuTemps;
 import gestion.scolaire.service.EmploiDuTempsService;
 import lombok.RequiredArgsConstructor;
@@ -70,6 +71,13 @@ public class EmploiDuTempsController {
             @PathVariable Long enseignantId,
             @RequestParam LocalDate date) {
         return ResponseEntity.ok(service.getByEnseignantAndDate(enseignantId, date));
+    }
+
+    @GetMapping("/enseignant/{enseignantId}/date/avec-seances")
+    public ResponseEntity<List<EmploiDuTempsAvecSeance>> getByEnseignantAndDateAvecSeances(
+            @PathVariable Long enseignantId,
+            @RequestParam LocalDate date) {
+        return ResponseEntity.ok(service.getByEnseignantAndDateAvecSeances(enseignantId, date));
     }
 
     @GetMapping("/export/pdf/{classeId}")
