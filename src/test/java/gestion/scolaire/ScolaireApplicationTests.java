@@ -20,7 +20,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(properties = {
     "spring.jpa.hibernate.ddl-auto=none",
-    "spring.jpa.properties.hibernate.hbm2ddl.auto=none"
+    "spring.jpa.properties.hibernate.hbm2ddl.auto=none",
+    "spring.sql.init.mode=never"
 })
 class ScolaireApplicationTests {
 

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -81,5 +82,27 @@ public class SeanceScheduler {
             }
         }
         System.out.println("Fin de la génération automatique des séances du jour.");
+    }
+
+    @Scheduled(fixedRate = 60000) // S'exécute chaque minute
+    public void mettreAJourSeancesNonEffectuees() {
+        LocalDate aujourdHui = LocalDate.now();
+        LocalTime maintenant = LocalTime.now();
+
+        List<Seance> seancesPassees = seanceRepository.findPastSeancesByStatut(
+                StatutSeance.PLANIFIEE, 
+                aujourdHui, 
+                maintenant
+        );
+
+        if (!seancesPassees.isEmpty()) {
+            System.out.println(seancesPassees.size() + " séances planifiées sont dépassées et seront marquées comme NON_EFFECTUEE.");
+            for (Seance seance : seancesPassees) {
+                seance.setStatut(StatutSeance.NON_EFFECTUEE);
+                seance.setDateModification(LocalDateTime.now());
+                seanceRepository.save(seance);
+                System.out.println("Séance " + seance.getId() + " marquée comme NON_EFFECTUEE.");
+            }
+        }
     }
 }

@@ -1,6 +1,7 @@
 package gestion.scolaire.repository;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -34,4 +35,10 @@ public interface SeanceRepository extends JpaRepository<Seance, Long> {
     List<Seance> findByAffectationClasseIdAndDate(
             @Param("classeId") Long classeId,
             @Param("date") LocalDate date);
+
+    @Query("SELECT s FROM Seance s WHERE s.statut = :statut AND (s.date < :date OR (s.date = :date AND s.heureFin < :time))")
+    List<Seance> findPastSeancesByStatut(
+            @Param("statut") StatutSeance statut,
+            @Param("date") LocalDate date,
+            @Param("time") LocalTime time);
 }

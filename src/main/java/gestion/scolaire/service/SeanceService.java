@@ -8,6 +8,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import gestion.scolaire.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -404,12 +405,42 @@ public class SeanceService {
             );
         }
 
-        // 3. Calculer les 4 stats
-        double meilleureNote = notes.stream().mapToDouble(Note::getValeur).max().orElse(0);
-        double plusFaibleNote = notes.stream().mapToDouble(Note::getValeur).min().orElse(0);
-        long notesSuperieuresOuEgalesA10 = notes.stream().filter(n -> n.getValeur() >= 10).count();
-        double tauxReussite = (notesSuperieuresOuEgalesA10 * 100.0) / notes.size();
-        int nombreEtudiants = (classe.getInscriptions() != null) ? classe.getInscriptions().size() : 0;
+        // 3. Calculer les statistiques par étudiant
+        Map<Long, List<Note>> notesParEtudiant = notes.stream()
+                .collect(Collectors.groupingBy(n -> n.getEtudiant().getId()));
+
+        double meilleureMoyenne = 0;
+        double plusFaibleMoyenne = 20;
+        long etudiantsMoyenneSup10 = 0;
+
+        for (List<Note> notesEtudiant : notesParEtudiant.values()) {
+            double sommeValeurs = 0;
+            double sommeCoeffs = 0;
+            for (Note n : notesEtudiant) {
+                sommeValeurs += n.getValeur() * n.getCoefficient();
+                sommeCoeffs += n.getCoefficient();
+            }
+            double moyenneEtudiant = sommeCoeffs > 0 ? sommeValeurs / sommeCoeffs : 0;
+            
+            if (moyenneEtudiant > meilleureMoyenne) {
+                meilleureMoyenne = moyenneEtudiant;
+            }
+            if (moyenneEtudiant < plusFaibleMoyenne) {
+                plusFaibleMoyenne = moyenneEtudiant;
+            }
+            if (moyenneEtudiant >= 10) {
+                etudiantsMoyenneSup10++;
+            }
+        }
+
+        if (notesParEtudiant.isEmpty()) {
+            plusFaibleMoyenne = 0;
+        }
+
+        int nombreEtudiantsEvalues = notesParEtudiant.size();
+        double tauxReussite = nombreEtudiantsEvalues > 0 ? (etudiantsMoyenneSup10 * 100.0) / nombreEtudiantsEvalues : 0;
+        int nombreEtudiantsInscrits = (classe.getInscriptions() != null) ? 
+                (int) classe.getInscriptions().stream().filter(i -> "INSCRIT".equals(i.getStatut())).count() : 0;
 
         Map<String, Object> result = Map.of(
                 "enseignantId", enseignantId,
@@ -417,11 +448,11 @@ public class SeanceService {
                 "matiere", matiere,
                 "classeId", classe.getId(),
                 "classeNom", classe.getNom(),
-                "nombreEtudiants", nombreEtudiants,
+                "nombreEtudiants", nombreEtudiantsInscrits,
                 "tauxReussite", String.format("%.0f%%", tauxReussite),
-                "meilleureNote", String.format("%.1f", meilleureNote),
-                "plusFaibleNote", String.format("%.1f", plusFaibleNote),
-                "notesSuperieuresOuEgalesA10", notesSuperieuresOuEgalesA10
+                "meilleureNote", String.format("%.1f", meilleureMoyenne),
+                "plusFaibleNote", String.format("%.1f", plusFaibleMoyenne),
+                "notesSuperieuresOuEgalesA10", etudiantsMoyenneSup10
         );
 
         System.out.println("=== Résultat renvoyé par le backend ===");
