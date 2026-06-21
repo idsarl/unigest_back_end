@@ -8,6 +8,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import gestion.scolaire.service.BulletinService.NoteConduiteDto;
+
 import gestion.scolaire.model.Bulletin;
 import gestion.scolaire.model.TypePeriode;
 import gestion.scolaire.service.BulletinPdfService;
@@ -103,6 +105,18 @@ public class BulletinController {
     public ResponseEntity<Void> supprimerBulletin(@PathVariable Long id) {
         bulletinService.supprimerBulletin(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Génère ou régénère (upsert) les bulletins pour tous les étudiants actifs d'une classe. */
+    @PostMapping("/classe/{classeId}/generer-tous")
+    public ResponseEntity<List<Bulletin>> genererTousPourClasse(
+            @PathVariable Long classeId,
+            @RequestParam Integer periode,
+            @RequestParam TypePeriode typePeriode,
+            @RequestBody List<NoteConduiteDto> conduites) {
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(bulletinService.genererTousPourClasse(classeId, periode, typePeriode, conduites));
     }
 
     /** Recalcule les rangs de toute une classe pour une période donnée (correction de données). */

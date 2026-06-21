@@ -2,6 +2,7 @@ package gestion.scolaire.model;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -52,10 +53,10 @@ public class EmploiDuTemps {
     @Enumerated(EnumType.STRING)
     private Set<JourSemaine> jours = new HashSet<>();
 
-    // Heure début
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm:ss")
     private LocalTime heureDebut;
 
-    // Heure fin
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm:ss")
     private LocalTime heureFin;
 
     // Début validité emploi du temps
