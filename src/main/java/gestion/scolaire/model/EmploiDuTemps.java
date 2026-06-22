@@ -53,10 +53,10 @@ public class EmploiDuTemps {
     @Enumerated(EnumType.STRING)
     private Set<JourSemaine> jours = new HashSet<>();
 
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm:ss")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm")
     private LocalTime heureDebut;
 
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm:ss")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm")
     private LocalTime heureFin;
 
     // Début validité emploi du temps

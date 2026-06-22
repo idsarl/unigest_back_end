@@ -129,8 +129,10 @@ public class EmploiDuTempsServiceImpl implements EmploiDuTempsService {
 
     @Override
     public List<EmploiDuTemps> getByClasse(Long classeId) {
-        List<EmploiDuTemps> cours = repository.findByClasseIdAndAnneeScolaireId(
-                classeId, anneeScolaireService.getAnneeActive().getId());
+        List<EmploiDuTemps> cours = repository.findByClasseId(classeId)
+                .stream()
+                .filter(EmploiDuTemps::isActif)
+                .collect(Collectors.toList());
         List<EmploiDuTemps> pausesGlobales = repository.findRecreationsGlobales();
         List<EmploiDuTemps> combined = new ArrayList<>(cours);
         combined.addAll(pausesGlobales);
