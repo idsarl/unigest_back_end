@@ -86,7 +86,9 @@ public class NoteService {
                                 .findByClasseIdAndMatiereId(
                                                 affectation.getClasse().getId(),
                                                 matiereId)
-                                .orElseThrow(() -> new RuntimeException("Coefficient introuvable"));
+                                .orElse(null);
+
+                double coefficient = (classeMatiere != null) ? classeMatiere.getCoefficient() : 1.0;
 
                 Note note = new Note();
                 note.setEtudiant(etudiant);
@@ -94,7 +96,7 @@ public class NoteService {
                 note.setAnneeScolaire(anneeActive);
                 note.setMatiere(matiere);
                 note.setValeur(valeur);
-                note.setCoefficient(classeMatiere.getCoefficient());
+                note.setCoefficient(coefficient);
                 note.setType(type);
                 note.setPeriode(periode);
                 note.setTypePeriode(typePeriode);
