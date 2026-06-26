@@ -37,6 +37,7 @@ public class ParametreEcoleService {
         existant.setTelephoneEcole(dto.getTelephoneEcole());
         existant.setQuotaClasse(dto.getQuotaClasse());
         existant.setQuotaComposition(dto.getQuotaComposition());
+        existant.setCoefficientConduite(dto.getCoefficientConduite());
 
         return parametreEcoleRepository.save(existant);
     }
@@ -62,6 +63,7 @@ public class ParametreEcoleService {
 
     public List<AppreciationSeuil> sauvegarderSeuils(List<AppreciationSeuil> seuils) {
         appreciationSeuilRepository.deleteAll();
+        seuils.forEach(s -> s.setId(null));
         return appreciationSeuilRepository.saveAll(seuils);
     }
 
