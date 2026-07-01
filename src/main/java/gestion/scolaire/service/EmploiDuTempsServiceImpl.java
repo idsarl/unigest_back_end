@@ -169,7 +169,7 @@ public EmploiDuTemps save(EmploiDuTemps dto) {
             EmploiDuTempsAvecSeance dto = new EmploiDuTempsAvecSeance();
             dto.setEmploiDuTemps(e);
             
-            if (e.getType() == TypeEmploi.COURS) {
+            if (e.getType() == TypeEmploi.COURS && e.getClasse() != null && e.getMatiere() != null) {
                 // Find affectation
                 java.util.Optional<gestion.scolaire.model.Affectation> affectation = affectationRepository.findByClasseAndEnseignantAndMatiere(
                         e.getClasse().getId(), enseignantId, e.getMatiere().getNom());

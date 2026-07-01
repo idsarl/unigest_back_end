@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -323,11 +324,11 @@ public class SeanceService {
                 aujourd_hui,
                 StatutPresence.ABSENT);
 
-        return Map.of(
-                "enseignantId", enseignantId,
-                "date", aujourd_hui.toString(),
-                "absences", absences
-        );
+        Map<String, Object> map = new HashMap<>();
+        map.put("enseignantId", enseignantId);
+        map.put("date", aujourd_hui.toString());
+        map.put("absences", absences);
+        return map;
     }
 
     public Map<String, Object> getMoyenneMatiereEnCoursParEnseignant(Long enseignantId) {
@@ -368,11 +369,11 @@ public class SeanceService {
 
         if (emploiSelectionne.isEmpty()) {
             System.out.println("Aucune séance trouvée !");
-            return Map.of(
-                    "enseignantId", enseignantId,
-                    "date", aujourd_hui.toString(),
-                    "message", "Aucune séance en cours ou prochaine aujourd'hui pour cet enseignant"
-            );
+            Map<String, Object> map = new HashMap<>();
+            map.put("enseignantId", enseignantId);
+            map.put("date", aujourd_hui.toString());
+            map.put("message", "Aucune séance en cours ou prochaine aujourd'hui pour cet enseignant");
+            return map;
         }
 
         EmploiDuTemps emploi = emploiSelectionne.get();
@@ -382,11 +383,11 @@ public class SeanceService {
 
         if (matiere == null || matiere.isBlank() || classe == null) {
             System.out.println("matiere ou classe null/vide !");
-            return Map.of(
-                    "enseignantId", enseignantId,
-                    "date", aujourd_hui.toString(),
-                    "message", "Impossible de déterminer la matière ou la classe de la séance"
-            );
+            Map<String, Object> map = new HashMap<>();
+            map.put("enseignantId", enseignantId);
+            map.put("date", aujourd_hui.toString());
+            map.put("message", "Impossible de déterminer la matière ou la classe de la séance");
+            return map;
         }
 
         // 2. Récupérer toutes les notes pour cette enseignant, cette matière et cette classe
@@ -395,14 +396,14 @@ public class SeanceService {
 
         if (notes.isEmpty()) {
             System.out.println("Aucune note trouvée !");
-            return Map.of(
-                    "enseignantId", enseignantId,
-                    "date", aujourd_hui.toString(),
-                    "matiere", matiere,
-                    "classeId", classe.getId(),
-                    "classeNom", classe.getNom(),
-                    "message", "Aucune note disponible pour cette classe et cette matière"
-            );
+            Map<String, Object> map = new HashMap<>();
+            map.put("enseignantId", enseignantId);
+            map.put("date", aujourd_hui.toString());
+            map.put("matiere", matiere);
+            map.put("classeId", classe.getId());
+            map.put("classeNom", classe.getNom());
+            map.put("message", "Aucune note disponible pour cette classe et cette matière");
+            return map;
         }
 
         // 3. Calculer les statistiques par étudiant
@@ -442,18 +443,17 @@ public class SeanceService {
         int nombreEtudiantsInscrits = (classe.getInscriptions() != null) ? 
                 (int) classe.getInscriptions().stream().filter(i -> "INSCRIT".equals(i.getStatut())).count() : 0;
 
-        Map<String, Object> result = Map.of(
-                "enseignantId", enseignantId,
-                "date", aujourd_hui.toString(),
-                "matiere", matiere,
-                "classeId", classe.getId(),
-                "classeNom", classe.getNom(),
-                "nombreEtudiants", nombreEtudiantsInscrits,
-                "tauxReussite", String.format("%.0f%%", tauxReussite),
-                "meilleureNote", String.format("%.1f", meilleureMoyenne),
-                "plusFaibleNote", String.format("%.1f", plusFaibleMoyenne),
-                "notesSuperieuresOuEgalesA10", etudiantsMoyenneSup10
-        );
+        Map<String, Object> result = new HashMap<>();
+        result.put("enseignantId", enseignantId);
+        result.put("date", aujourd_hui.toString());
+        result.put("matiere", matiere);
+        result.put("classeId", classe.getId());
+        result.put("classeNom", classe.getNom());
+        result.put("nombreEtudiants", nombreEtudiantsInscrits);
+        result.put("tauxReussite", String.format("%.0f%%", tauxReussite));
+        result.put("meilleureNote", String.format("%.1f", meilleureMoyenne));
+        result.put("plusFaibleNote", String.format("%.1f", plusFaibleMoyenne));
+        result.put("notesSuperieuresOuEgalesA10", etudiantsMoyenneSup10);
 
         System.out.println("=== Résultat renvoyé par le backend ===");
         System.out.println(result);
@@ -471,15 +471,15 @@ public class SeanceService {
                 .min(Comparator.comparing(EmploiDuTemps::getHeureDebut))
                 .map(prochaine -> {
                     Duration duree = Duration.between(maintenant, prochaine.getHeureDebut());
-                    return Map.<String, Object>of(
-                            "seanceId", prochaine.getId(),
-                            "matiere", prochaine.getMatiere() != null ? prochaine.getMatiere().getNom() : null,
-                            "heureDebut", prochaine.getHeureDebut().toString(),
-                            "heureFin", prochaine.getHeureFin() != null ? prochaine.getHeureFin().toString() : null,
-                            "minutesRestantes", duree.toMinutes(),
-                            "heuresRestantes", duree.toHours(),
-                            "statut", "PLANIFIEE"
-                    );
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("seanceId", prochaine.getId());
+                    map.put("matiere", prochaine.getMatiere() != null ? prochaine.getMatiere().getNom() : null);
+                    map.put("heureDebut", prochaine.getHeureDebut().toString());
+                    map.put("heureFin", prochaine.getHeureFin() != null ? prochaine.getHeureFin().toString() : null);
+                    map.put("minutesRestantes", duree.toMinutes());
+                    map.put("heuresRestantes", duree.toHours());
+                    map.put("statut", "PLANIFIEE");
+                    return map;
                 })
                 .orElse(Map.of("message", "Aucune séance restante aujourd'hui pour cet enseignant"));
     }
